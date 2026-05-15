@@ -1,0 +1,9 @@
+# 測試配體 (5個代表性藥物)
+Aspirin	CC(=O)Oc1ccccc1C(=O)O
+Ibuprofen	CC(C)Cc1ccc(cc1)[C@@H](C)C(=O)O
+Metformin	CN(C)C(=N)NC(=N)N
+Warfarin	CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O
+Atorvastatin	CC(C)c1c(C(=O)Nc2ccccc2F)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O
+Caffeine	Cn1cnc2c1c(=O)n(C)c(=O)n2C
+Tamoxifen	CC/C(=C(\c1ccccc1)c1ccc(OCCN(C)C)cc1)c1ccccc1
+Methotrexate	CN(Cc1cnc2nc(N)nc(N)c2n1)c1ccc(C(=O)N[C@@H](CCC(=O)O)C(=O)O)cc1

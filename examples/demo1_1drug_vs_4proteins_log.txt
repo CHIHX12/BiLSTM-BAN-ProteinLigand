@@ -1,0 +1,35 @@
+07:13:09 [INFO] ============================================================
+07:13:09 [INFO]   GCN-BiLSTM-BAN  —  Batch Prediction
+07:13:09 [INFO] ============================================================
+07:13:09 [INFO] 
+Loading LIGANDS from: examples/one_drug.txt
+07:13:09 [INFO]   Loaded 1 raw ligand entries
+07:13:09 [INFO]   Valid ligands: 1 / 1
+07:13:09 [INFO] 
+Loading RECEPTORS from: examples/proteins.fasta
+07:13:09 [INFO]   Loaded 4 raw receptor entries
+07:13:09 [INFO]   Valid receptors: 4 / 4
+07:13:09 [INFO] 
+07:13:09 [INFO] Auto-detected mode: 1 ligand × 4 receptors (Mode 1:N)
+07:13:09 [INFO] Total pairs to predict: 4
+07:13:09 [INFO] 
+07:13:11 [INFO] Loading model: BiLSTM  |  device: cuda
+07:13:11 [INFO] Running inference on 4 pairs in 1 batches...
+07:13:11 [INFO]   batch 1/1 done
+07:13:11 [INFO] 
+07:13:11 [INFO] ============================================================
+07:13:11 [INFO]   RESULTS SUMMARY
+07:13:11 [INFO] ============================================================
+07:13:11 [INFO]   Total pairs predicted : 4
+07:13:11 [INFO]   BIND                  : 3  (75.0%)
+07:13:11 [INFO]   NO_BIND               : 1  (25.0%)
+07:13:11 [INFO] 
+07:13:11 [INFO]   Top 5 binding candidates:
+07:13:11 [INFO]     [Very High]  0.9994  caffeine ↔ CDK2_human
+07:13:11 [INFO]     [Very High]  0.9067  caffeine ↔ DHFR_human
+07:13:11 [INFO]     [     High]  0.6583  caffeine ↔ A2AR_human
+07:13:11 [INFO]     [ Very Low]  0.0107  caffeine ↔ ESR1_human
+07:13:11 [INFO] 
+07:13:11 [INFO]   Results saved to : examples/demo1_1drug_vs_4proteins.csv
+07:13:11 [INFO]   Full log saved to: examples/demo1_1drug_vs_4proteins_log.txt
+07:13:11 [INFO] ============================================================

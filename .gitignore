@@ -1,0 +1,39 @@
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# ── Large training datasets (download separately) ─────────
+# Keep small test/val sets for reproducibility; exclude big training files
+datasets/full.csv
+datasets/bindingdb/full.csv
+datasets/random/train.csv
+datasets/bindingdb/random/train.csv
+datasets/cluster/source_train.csv
+datasets/bindingdb/cluster/source_train.csv
+datasets/cluster/target_train.csv
+datasets/bindingdb/cluster/target_train.csv
+
+# ── Screening output (generated — not tracked) ────────────
+screening/output/
+
+# ── Model checkpoints (host on Zenodo/HuggingFace instead) ─
+result/**/*.pth
+result/**/*.pt
+result/**/*.pkl
+
+# ── Generated prediction output ───────────────────────────
+last_prediction.txt
+predictions.csv
+
+# ── OS / editor ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.venv/
+.env

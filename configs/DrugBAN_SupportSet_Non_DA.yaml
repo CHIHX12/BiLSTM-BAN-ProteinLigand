@@ -1,0 +1,32 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True  # 保持 True 以啟用 cluster split
+  USE: False  # 但不使用 DA 訓練
+
+PROTEIN:
+  # 使用 CNN 編碼器
+  USE_BILSTM: False
+
+DECODER:
+  BINARY: 1
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_SupportSet_Non_DA"
+  SAVE_MODEL: True
+
+SUPPORT_SET:
+  USE: True
+  K: 5
+  ALPHA: 0.5
+  SAMPLING_STRATEGY: "random"
+  AGGREGATION_TRAIN: "mean"
+  AGGREGATION_TEST: "median"
+
+COMET:
+  PROJECT_NAME: "DrugBAN_SupportSet_Non_DA"
+  TAG: "GCN_CNN_BatLiNet_NonDA_Control"

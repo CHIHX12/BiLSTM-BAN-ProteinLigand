@@ -1,0 +1,36 @@
+07:13:22 [INFO] ============================================================
+07:13:22 [INFO]   GCN-BiLSTM-BAN  —  Batch Prediction
+07:13:22 [INFO] ============================================================
+07:13:22 [INFO] 
+Loading LIGANDS from: examples/drugs.txt
+07:13:22 [INFO]   Loaded 5 raw ligand entries
+07:13:22 [INFO]   Valid ligands: 5 / 5
+07:13:22 [INFO] 
+Loading RECEPTORS from: examples/one_protein.txt
+07:13:22 [INFO]   Loaded 1 raw receptor entries
+07:13:22 [INFO]   Valid receptors: 1 / 1
+07:13:22 [INFO] 
+07:13:22 [INFO] Auto-detected mode: 5 ligands × 1 receptor (Mode N:1)
+07:13:22 [INFO] Total pairs to predict: 5
+07:13:22 [INFO] 
+07:13:24 [INFO] Loading model: BiLSTM  |  device: cuda
+07:13:24 [INFO] Running inference on 5 pairs in 1 batches...
+07:13:24 [INFO]   batch 1/1 done
+07:13:24 [INFO] 
+07:13:24 [INFO] ============================================================
+07:13:24 [INFO]   RESULTS SUMMARY
+07:13:24 [INFO] ============================================================
+07:13:24 [INFO]   Total pairs predicted : 5
+07:13:24 [INFO]   BIND                  : 2  (40.0%)
+07:13:24 [INFO]   NO_BIND               : 3  (60.0%)
+07:13:24 [INFO] 
+07:13:24 [INFO]   Top 5 binding candidates:
+07:13:24 [INFO]     [      Low]  0.3646  ibuprofen ↔ ESR1_human
+07:13:24 [INFO]     [      Low]  0.3585  aspirin ↔ ESR1_human
+07:13:24 [INFO]     [ Very Low]  0.0225  metformin ↔ ESR1_human
+07:13:24 [INFO]     [ Very Low]  0.0195  tamoxifen ↔ ESR1_human
+07:13:24 [INFO]     [ Very Low]  0.0107  caffeine ↔ ESR1_human
+07:13:24 [INFO] 
+07:13:24 [INFO]   Results saved to : examples/demo2_5drugs_vs_ESR1.csv
+07:13:24 [INFO]   Full log saved to: examples/demo2_5drugs_vs_ESR1_log.txt
+07:13:24 [INFO] ============================================================

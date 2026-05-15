@@ -1,0 +1,39 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: False
+  USE: False
+
+PROTEIN:
+  # 啟用 BiLSTM 編碼器（但不使用物理特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  EMBEDDING_DIM: 128
+  FEATURE_DIM: 0  # 不使用蛋白質特徵
+  MAX_PROTEIN_LENGTH: 1200
+  PADDING: True
+
+DECODER:
+  BINARY: 1
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_BiLSTM_NoProteinFeatures_SupportSet"
+  SAVE_MODEL: True
+
+SUPPORT_SET:
+  USE: True
+  K: 5
+  ALPHA: 0.5
+  SAMPLING_STRATEGY: "random"
+  AGGREGATION_TRAIN: "mean"
+  AGGREGATION_TEST: "median"
+
+COMET:
+  PROJECT_NAME: "DrugBAN_BiLSTM_NoProteinFeatures_SupportSet"
+  TAG: "GCN_BiLSTM_Protein_NoFeatures_BatLiNet"

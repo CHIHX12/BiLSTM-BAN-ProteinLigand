@@ -1,0 +1,49 @@
+SOLVER:
+  BATCH_SIZE: 32  # DA 建議使用較小 batch size
+  MAX_EPOCH: 100
+  LR: 1e-4
+  DA_LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True  # 啟用 Domain Adaptation
+  USE: True
+  METHOD: "CDAN"
+  USE_ENTROPY: False
+  RANDOM_LAYER: True
+  ORIGINAL_RANDOM: True
+  RANDOM_DIM: 256
+  INIT_EPOCH: 10
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（SELFIES 序列表示）
+  USE_BILSTM: True
+  VOCAB_SIZE: 100  # 會根據實際數據集自動更新
+  LSTM_HIDDEN_DIM: 64
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  NODE_IN_EMBEDDING: 128
+  HIDDEN_LAYERS: [128, 128, 128]
+  MAX_DRUG_LENGTH: 200
+  PADDING: True
+
+PROTEIN:
+  # 使用 CNN 編碼器
+  USE_BILSTM: False
+  NUM_FILTERS: [128, 128, 128]
+  KERNEL_SIZE: [3, 6, 9]
+  EMBEDDING_DIM: 128
+  MAX_PROTEIN_LENGTH: 1200
+  PADDING: True
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM_DA"
+  SAVE_MODEL: True
+
+# Config below only when you use comet
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_DA"
+  TAG: "Drug_SELFIES_BiLSTM_CDAN"

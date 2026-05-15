@@ -1,0 +1,47 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: False
+  USE: False
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（SELFIES 序列表示）
+  USE_BILSTM: True
+  VOCAB_SIZE: 100  # 會根據實際數據集自動更新
+  LSTM_HIDDEN_DIM: 64  # BiLSTM 隱藏層維度
+  LSTM_NUM_LAYERS: 2   # LSTM 層數
+  LSTM_DROPOUT: 0.2    # Dropout 率
+  NODE_IN_EMBEDDING: 128  # Token Embedding 維度
+  HIDDEN_LAYERS: [128, 128, 128]  # 輸出維度（與 GCN 保持一致以便比較）
+  MAX_DRUG_LENGTH: 200  # 最大 SELFIES 序列長度
+  PADDING: True
+  # 啟用藥物物理化學特徵
+  USE_FEATURES: True
+  FEATURE_DIM: 8  # MW, logP, TPSA, HBD, HBA, Ring, RotBonds, Charge
+
+PROTEIN:
+  # 啟用 BiLSTM 編碼器（也使用物理特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256  # BiLSTM 隱藏層維度
+  LSTM_NUM_LAYERS: 2    # LSTM 層數
+  LSTM_DROPOUT: 0.2     # Dropout 率
+  EMBEDDING_DIM: 128    # Embedding 維度
+  FEATURE_DIM: 4        # 氨基酸物理特徵維度（疏水性、體積、電荷、極性）
+  MAX_PROTEIN_LENGTH: 1200  # 最大序列長度
+  PADDING: True
+
+DECODER:
+  BINARY: 1
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM_BothFeatures"
+  SAVE_MODEL: True
+
+# Config below only when you use comet
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_BothFeatures"
+  TAG: "Both_BiLSTM_with_PhysicalFeatures"

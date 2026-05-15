@@ -1,0 +1,41 @@
+SOLVER:
+  BATCH_SIZE: 32  # Not used for MAML (TASK_BATCH_SIZE is used instead)
+  MAX_EPOCH: 100
+  LR: 5e-5  # Meta-learning rate (outer loop)
+  DA_LR: 1e-3  # Not used for MAML (no discriminator)
+  SEED: 42
+
+DA:
+  TASK: True
+  USE: True
+  METHOD: "MetaLearning"  # Meta-learning based domain adaptation
+  USE_ENTROPY: False
+  RANDOM_LAYER: False
+  ORIGINAL_RANDOM: False
+  RANDOM_DIM: 256
+  INIT_EPOCH: 0  # MAML starts from epoch 0
+  LAMB_DA: 1
+
+MAML:
+  ENABLE: True              # Enable MAML meta-learning
+  INNER_LR: 0.01            # Inner loop learning rate (α)
+  INNER_STEPS: 10           # Number of inner adaptation steps (K=10)
+  FIRST_ORDER: False        # Use second-order MAML for better performance
+  TASK_BATCH_SIZE: 4        # Number of protein tasks per meta-batch
+  SUPPORT_SIZE: 16          # Support set size per task
+  QUERY_SIZE: 16            # Query set size per task
+  MIN_SAMPLES_PER_PROTEIN: 10  # Minimum samples required for a protein to be a task
+  MMD_WEIGHT: 0.1           # Weight for MMD loss (λ)
+  MMD_KERNEL_MUL: 2.0       # MMD kernel bandwidth multiplier
+  MMD_KERNEL_NUM: 5         # Number of Gaussian kernels for MMD
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_MetaLearning"
+  SAVE_MODEL: True
+
+COMET:
+  PROJECT_NAME: "DrugBAN_MetaLearning"
+  TAG: "GCN_CNN_MetaLearning"

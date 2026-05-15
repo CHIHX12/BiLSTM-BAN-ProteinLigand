@@ -1,0 +1,46 @@
+SOLVER:
+  BATCH_SIZE: 32  # DA 建議使用較小 batch size
+  MAX_EPOCH: 100
+  LR: 1e-4
+  DA_LR: 5e-5  # Domain Adaptation 專用學習率
+  SEED: 42
+
+DA:
+  TASK: True  # 啟用 Domain Adaptation
+  USE: True
+  METHOD: "CDAN"  # Conditional Domain Adversarial Network
+  USE_ENTROPY: False
+  RANDOM_LAYER: True
+  ORIGINAL_RANDOM: True
+  RANDOM_DIM: 256
+  INIT_EPOCH: 10  # 前 10 個 epoch 不啟用 DA，先穩定訓練
+
+PROTEIN:
+  # 使用 CNN 編碼器（官方版本）
+  USE_BILSTM: False
+  NUM_FILTERS: [128, 128, 128]  # CNN 濾波器數量
+  KERNEL_SIZE: [3, 6, 9]        # CNN 卷積核大小
+  EMBEDDING_DIM: 128            # Embedding 維度
+  MAX_PROTEIN_LENGTH: 1200      # 最大序列長度
+  PADDING: True
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_SupportSet_DA"
+  SAVE_MODEL: True
+
+# Support Set Configuration (BatLiNet-inspired mechanism)
+SUPPORT_SET:
+  USE: True  # 啟用 Support Set 機制
+  K: 5  # 每個 query 使用 5 個 support samples
+  ALPHA: 0.5  # Support path 權重（0.5 = 混合原始預測和支持集預測）
+  SAMPLING_STRATEGY: "random"  # 從訓練集隨機採樣
+  AGGREGATION_TRAIN: "mean"  # 訓練時：平均 support 預測
+  AGGREGATION_TEST: "median"  # 測試時：中位數（更穩健）
+
+# Config below only when you use comet
+COMET:
+  PROJECT_NAME: "DrugBAN_CNN_SupportSet_DA"
+  TAG: "Hybrid_CNN_BatLiNet_CDAN"

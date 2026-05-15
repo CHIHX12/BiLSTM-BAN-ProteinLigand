@@ -1,0 +1,35 @@
+# GCN-BiLSTM-BAN Environment Requirements
+# Tested with Python 3.10 (conda env: drugban)
+#
+# Install order matters for DGL + PyTorch compatibility:
+#   1. Install PyTorch first (with CUDA if available)
+#   2. Install DGL matching your CUDA version
+#   3. Install the rest with pip
+
+# --- Core deep learning ---
+torch==2.2.1
+# DGL: install from https://www.dgl.ai/pages/start.html
+# Example (CUDA 12.1):  pip install dgl -f https://data.dgl.ai/wheels/repo.html
+dgl==2.1.0
+dgllife==0.3.2
+
+# --- Data / science ---
+numpy==1.26.4
+pandas==2.3.3
+scikit-learn==1.7.0
+
+# --- Visualization ---
+matplotlib==3.10.1
+
+# --- Config / utils ---
+yacs==0.1.8
+prettytable==3.17.0
+tqdm==4.67.1
+
+# --- PyMOL (Step 5-6, Windows/Linux) ---
+# Install from https://pymol.org/  (not via pip for licensed version)
+# Open-source: conda install -c conda-forge pymol-open-source
+
+# --- fpocket (Step 4, Linux only) ---
+# Install from https://github.com/Discngine/fpocket
+# Ubuntu: sudo apt install fpocket

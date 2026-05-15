@@ -1,0 +1,28 @@
+SOLVER:
+  BATCH_SIZE: 32
+  MAX_EPOCH: 100
+  LR: 1e-4
+  DA_LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True
+  USE: True
+  METHOD: "DANN"  # Domain-Adversarial Neural Network
+  USE_ENTROPY: False
+  RANDOM_LAYER: False
+  ORIGINAL_RANDOM: False
+  RANDOM_DIM: 256
+  INIT_EPOCH: 10
+  LAMB_DA: 1  # DANN gradient reversal lambda
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DANN"
+  SAVE_MODEL: True
+
+COMET:
+  PROJECT_NAME: "DrugBAN_DANN"
+  TAG: "GCN_CNN_DANN"

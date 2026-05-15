@@ -1,0 +1,42 @@
+SOLVER:
+  BATCH_SIZE: 32
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True   # 讀取 source/target 格式 (cluster split)
+  USE: False   # 不使用 DA 技術
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（但不使用藥物特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  USE_FEATURES: False
+  FEATURE_DIM: 0
+  MAX_DRUG_LENGTH: 200
+  PADDING: True
+
+PROTEIN:
+  # 啟用 BiLSTM 編碼器 + 蛋白質物理特徵
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  EMBEDDING_DIM: 128
+  FEATURE_DIM: 4  # 疏水性、體積、電荷、極性
+  MAX_PROTEIN_LENGTH: 1200
+  PADDING: True
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM_ProteinBiLSTM_Non_DA"
+  SAVE_MODEL: True
+
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_ProteinBiLSTM"
+  TAG: "BiLSTM_Drug_BiLSTM_Protein_NonDA"

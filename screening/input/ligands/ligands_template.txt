@@ -1,0 +1,37 @@
+# ============================================================
+# 配體輸入格式範例 / Ligand Input File Template
+# ============================================================
+#
+# 格式規則 / Format Rules:
+#   - 每行一個配體 / One ligand per line
+#   - 格式: 名稱 [Tab] SMILES
+#   - 純 SMILES (無名稱) 也接受，系統自動命名為 LIG_0001, LIG_0002 ...
+#   - 以 # 開頭的行為注釋，會被忽略
+#   - 空白行會被忽略
+#
+# SMILES 來源建議 / Where to get SMILES:
+#   - PubChem: https://pubchem.ncbi.nlm.nih.gov  (搜尋藥物名稱 → Canonical SMILES)
+#   - ChemDraw: 直接從結構繪製後 Copy as SMILES
+#   - DrugBank: https://www.drugbank.ca  (每個藥物頁面有 SMILES)
+#
+# 注意 / Notes:
+#   - 若 SMILES 包含多個片段 (以. 分隔，例如鹽類)，系統自動保留最大片段
+#   - 分子量 > 1000 Da 或重原子數 > 290 的分子會被自動篩除
+#   - 驗證前請先執行: python validate_inputs.py
+#
+# ============================================================
+
+# 兩欄格式範例 (Name<Tab>SMILES)
+Aspirin	CC(=O)Oc1ccccc1C(=O)O
+Ibuprofen	CC(C)Cc1ccc(cc1)[C@@H](C)C(=O)O
+Metformin	CN(C)C(=N)NC(=N)N
+Warfarin	CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O
+Atorvastatin	CC(C)c1c(C(=O)Nc2ccccc2F)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O
+
+# 純 SMILES 格式 (無名稱)
+# 系統會自動命名為 LIG_0006, LIG_0007, ...
+c1ccc2c(c1)cc1ccc3cccc4ccc2c1c34
+C(CCl)CCl
+
+# 含鹽的 SMILES (系統自動處理，保留最大片段)
+[Na+].[O-]C(=O)c1ccccc1	Sodium_Benzoate_salt_form

@@ -1,0 +1,28 @@
+name: drugban
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    # PyTorch with CUDA 12.1  (--index-url must come BEFORE torch)
+    - --index-url https://download.pytorch.org/whl/cu121
+    - torch==2.2.1
+    - torchvision==0.17.1
+    - torchaudio==2.2.1
+    # DGL with CUDA 12.1  (--find-links must come BEFORE dgl, +cu121 required)
+    - --find-links https://data.dgl.ai/wheels/repo.html
+    - dgl==2.1.0+cu121
+    - dgllife==0.3.2
+    # Science / data
+    - numpy==1.26.4
+    - pandas==2.3.3
+    - scikit-learn==1.7.0
+    - scipy==1.15.2
+    - matplotlib==3.10.1
+    # Cheminformatics
+    - rdkit==2024.3.5
+    # Utilities
+    - yacs==0.1.8
+    - prettytable==3.17.0
+    - tqdm==4.67.1

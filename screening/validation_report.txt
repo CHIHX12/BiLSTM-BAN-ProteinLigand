@@ -1,0 +1,39 @@
+HTS Validation Report — 2026-04-26 23:32:25
+Ligands file:  input/ligands/ligands.txt
+Proteins file: input/proteins/proteins.txt
+
+======================================================================
+SMILES VALIDATION REPORT
+======================================================================
+  Total entries:    8
+  OK (clean):       8
+  WARNING (fixed):  0
+  ERROR (skipped):  0
+  Usable for screen:8
+----------------------------------------------------------------------
+======================================================================
+
+======================================================================
+PROTEIN SEQUENCE VALIDATION REPORT
+======================================================================
+  Total entries:    4
+  OK (clean):       3
+  WARNING (fixed):  1
+  ERROR (skipped):  0
+  Usable for screen:4
+----------------------------------------------------------------------
+
+[WARNING] EGFR_HUMAN
+  ⚠  Sequence length 1210 exceeds model limit of 1200. The sequence will be TRUNCATED to first 1200 residues during prediction. Residues beyond this limit will be ignored. Consider using the full-length canonical isoform if possible.
+  →  Cleaned (1210 aa): MRPSGTAGAALLALLAALCPASRALEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEV...
+======================================================================
+
+======================================================================
+  VALIDATION SUMMARY
+======================================================================
+  Ligands:      8 total  |      8 usable  |    0 error(s)  |    0 warning(s)
+  Proteins:     4 total  |      4 usable  |    0 error(s)  |    1 warning(s)
+  Screening pairs: 32  (8 × 4)
+======================================================================
+  ⚠  Warnings found — entries with warnings will still be used.
+     Review the report and correct if needed.

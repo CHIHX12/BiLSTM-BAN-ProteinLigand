@@ -1,0 +1,11 @@
+# Example drug file — tab-separated: Name [Tab] SMILES
+# Source: PubChem canonical SMILES
+#
+# Usage:
+#   python predict_batch.py --ligands examples/drugs.txt --receptors examples/proteins.fasta
+#
+caffeine	CN1C=NC2=C1C(=O)N(C(=O)N2C)C
+aspirin	CC(=O)Oc1ccccc1C(=O)O
+ibuprofen	CC(C)Cc1ccc(cc1)[C@@H](C)C(=O)O
+metformin	CN(C)C(=N)NC(=N)N
+tamoxifen	CC/C(=C(\CCN(C)C)c1ccccc1)c1ccc(OCC)cc1

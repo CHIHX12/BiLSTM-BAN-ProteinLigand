@@ -1,0 +1,51 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: False
+  USE: False
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（SELFIES 序列表示）
+  USE_BILSTM: True
+  VOCAB_SIZE: 100
+  LSTM_HIDDEN_DIM: 64
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  NODE_IN_EMBEDDING: 128
+  HIDDEN_LAYERS: [128, 128, 128]
+  MAX_DRUG_LENGTH: 200
+  PADDING: True
+
+PROTEIN:
+  # 使用 CNN 編碼器
+  USE_BILSTM: False
+  NUM_FILTERS: [128, 128, 128]
+  KERNEL_SIZE: [3, 6, 9]
+  EMBEDDING_DIM: 128
+  MAX_PROTEIN_LENGTH: 1200
+  PADDING: True
+
+DECODER:
+  BINARY: 1
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM_SupportSet"
+  SAVE_MODEL: True
+
+# Support Set Configuration
+SUPPORT_SET:
+  USE: True
+  K: 5
+  ALPHA: 0.5
+  SAMPLING_STRATEGY: "random"
+  AGGREGATION_TRAIN: "mean"
+  AGGREGATION_TEST: "median"
+
+# Config below only when you use comet
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_SupportSet"
+  TAG: "Drug_BiLSTM_BatLiNet"

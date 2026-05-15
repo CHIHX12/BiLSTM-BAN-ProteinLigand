@@ -1,0 +1,7 @@
+# Single protein — Estrogen receptor alpha (ESR1)
+# Use this to screen ALL drugs in drugs.txt against ONE target  (Mode N:1)
+#
+# Usage:
+#   python predict_batch.py --ligands examples/drugs.txt --receptors examples/one_protein.txt
+#
+ESR1_human	MTVSSANAGMDAQTNTQGVEMYSQLQGTQSSMGTSMNYPNQMQQTPQQPNVTPNTMQPLSMHTQQQMPQQMPAQSTQLPQPQASQASQGQSQPMHQQAQQRLLLKAMRELGGGMQQATQQMQTQQQSHPQMAAQMPQQTQMQQAAQQRMFQQPLLQQAQQRP

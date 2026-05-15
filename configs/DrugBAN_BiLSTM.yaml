@@ -1,0 +1,32 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: False
+  USE: False
+
+PROTEIN:
+  # 啟用 BiLSTM 編碼器（專家版本）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256  # BiLSTM 隱藏層維度
+  LSTM_NUM_LAYERS: 2    # LSTM 層數
+  LSTM_DROPOUT: 0.2     # Dropout 率
+  EMBEDDING_DIM: 128    # Embedding 維度
+  FEATURE_DIM: 4        # 氨基酸物理特徵維度（疏水性、體積、電荷、極性）
+  MAX_PROTEIN_LENGTH: 1200  # 最大序列長度（與官方一致，覆蓋 BindingDB 89%）
+  PADDING: True
+
+DECODER:
+  BINARY: 1
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_BiLSTM"
+  SAVE_MODEL: True
+
+# Config below only when you use comet
+COMET:
+  PROJECT_NAME: "DrugBAN_BiLSTM_Vanilla"
+  TAG: "In_Domain"

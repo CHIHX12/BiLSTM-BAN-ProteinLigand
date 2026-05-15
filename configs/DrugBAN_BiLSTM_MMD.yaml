@@ -1,0 +1,38 @@
+SOLVER:
+  BATCH_SIZE: 32
+  MAX_EPOCH: 100
+  LR: 1e-4
+  DA_LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True
+  USE: True
+  METHOD: "MMD"  # Maximum Mean Discrepancy
+  USE_ENTROPY: False
+  RANDOM_LAYER: False
+  ORIGINAL_RANDOM: False
+  RANDOM_DIM: 256
+  INIT_EPOCH: 10
+  LAMB_DA: 1  # MMD loss weight
+
+PROTEIN:
+  # 啟用 BiLSTM 編碼器（使用蛋白質特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  FEATURE_DIM: 4  # 使用蛋白質特徵
+  MAX_PROTEIN_LENGTH: 1200
+  PADDING: True
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_BiLSTM_MMD"
+  SAVE_MODEL: True
+
+COMET:
+  PROJECT_NAME: "DrugBAN_BiLSTM_MMD"
+  TAG: "GCN_BiLSTM_Protein_MMD"

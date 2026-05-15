@@ -1,0 +1,57 @@
+SOLVER:
+  BATCH_SIZE: 32
+  MAX_EPOCH: 100
+  LR: 1e-4
+  DA_LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True
+  USE: True
+  METHOD: "CDAN"
+  USE_ENTROPY: False
+  RANDOM_LAYER: True
+  ORIGINAL_RANDOM: True
+  RANDOM_DIM: 256
+  INIT_EPOCH: 10
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（使用藥物特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  USE_FEATURES: True
+  FEATURE_DIM: 8  # 使用藥物特徵
+  MAX_DRUG_LENGTH: 200
+  PADDING: True
+
+PROTEIN:
+  # 啟用 BiLSTM 編碼器（但不使用蛋白質特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  EMBEDDING_DIM: 128
+  FEATURE_DIM: 0  # 不使用蛋白質特徵
+  MAX_PROTEIN_LENGTH: 1200
+  PADDING: True
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM_DrugFeatures_ProteinBiLSTM_SupportSet_DA"
+  SAVE_MODEL: True
+
+SUPPORT_SET:
+  USE: True
+  K: 5
+  ALPHA: 0.5
+  SAMPLING_STRATEGY: "random"
+  AGGREGATION_TRAIN: "mean"
+  AGGREGATION_TEST: "median"
+
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_DrugFeatures_ProteinBiLSTM_SupportSet_DA"
+  TAG: "BiLSTM_Drug_DrugFeatures_BiLSTM_Protein_BatLiNet_CDAN"

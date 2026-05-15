@@ -1,0 +1,53 @@
+# ============================================================
+# HTS Drug-Protein Screening — Default Configuration
+# ============================================================
+# This file documents all available parameters and their defaults.
+# Most users do NOT need to edit this file.
+# All parameters can also be overridden from the command line.
+# ============================================================
+
+SCREENING:
+  # Model choice: "bilstm" (recommended, higher accuracy)
+  #              "cnn"    (baseline, faster)
+  MODEL: "bilstm"
+
+  # Inference batch size.
+  # Reduce to 8 or 16 if you encounter GPU out-of-memory errors.
+  # Increase to 64 on high-memory GPUs for faster throughput.
+  BATCH_SIZE: 32
+
+  # Save top-N results in results_top*.csv (sorted by binding probability)
+  TOP_N: 50
+
+  # Binding probability threshold for BIND / NO_BIND classification.
+  # Pairs with prob >= THRESHOLD are labelled BIND.
+  THRESHOLD: 0.5
+
+  # Whether to extract binding site (attention weight) information.
+  # Binding sites are only computed for pairs above THRESHOLD.
+  # Set to false to speed up large screens.
+  EXTRACT_BINDING_SITES: true
+
+  # Percentile cutoff for labelling a residue as a binding site.
+  # 0.80 means top-20% attention residues are labelled is_binding_site=True.
+  BINDING_SITE_PERCENTILE: 0.80
+
+INPUT:
+  # Default paths (relative to the screening/ directory)
+  LIGANDS_FILE:  "input/ligands/ligands.txt"
+  PROTEINS_FILE: "input/proteins/proteins.txt"
+
+  # How to handle multi-chain FASTA proteins
+  # Options: "first"  → use first chain only (default, safest)
+  #          "concat" → concatenate all chains
+  #          "error"  → raise error on multi-chain files
+  MULTI_CHAIN: "first"
+
+OUTPUT:
+  # Root output directory; a timestamped subfolder is created for each run
+  OUTPUT_DIR: "output"
+
+MODEL_PATHS:
+  # Paths to trained model checkpoints (relative to GCN-BILSTM-BAN-bak/)
+  BILSTM: "result/DrugBAN_BiLSTM/best_model_epoch_94.pth"
+  CNN:    "result/DrugBAN/best_model_epoch_90.pth"

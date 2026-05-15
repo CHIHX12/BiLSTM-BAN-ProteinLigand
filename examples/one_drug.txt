@@ -1,0 +1,7 @@
+# Single drug — caffeine
+# Use this to screen ONE drug against ALL proteins in proteins.fasta  (Mode 1:N)
+#
+# Usage:
+#   python predict_batch.py --ligands examples/one_drug.txt --receptors examples/proteins.fasta
+#
+caffeine	CN1C=NC2=C1C(=O)N(C(=O)N2C)C

@@ -1,0 +1,35 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: True  # 保持 True 以啟用 cluster split
+  USE: False  # 但不使用 DA 訓練
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（但不使用藥物特徵）
+  USE_BILSTM: True
+  LSTM_HIDDEN_DIM: 256
+  LSTM_NUM_LAYERS: 2
+  LSTM_DROPOUT: 0.2
+  USE_FEATURES: False
+  FEATURE_DIM: 0
+  MAX_DRUG_LENGTH: 200
+  PADDING: True
+
+PROTEIN:
+  # 使用 CNN 編碼器
+  USE_BILSTM: False
+
+DECODER:
+  BINARY: 2
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM_Non_DA"
+  SAVE_MODEL: True
+
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_Non_DA"
+  TAG: "BiLSTM_Drug_CNN_NonDA_Control"

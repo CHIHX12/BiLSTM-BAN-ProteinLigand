@@ -1,0 +1,72 @@
+07:13:35 [INFO] ============================================================
+07:13:35 [INFO]   GCN-BiLSTM-BAN  —  Batch Prediction
+07:13:35 [INFO] ============================================================
+07:13:35 [INFO] 
+Loading LIGANDS from: examples/drugs.txt
+07:13:35 [INFO]   Loaded 5 raw ligand entries
+07:13:35 [INFO]   Valid ligands: 5 / 5
+07:13:35 [INFO] 
+Loading RECEPTORS from: examples/proteins.fasta
+07:13:35 [INFO]   Loaded 4 raw receptor entries
+07:13:35 [INFO]   Valid receptors: 4 / 4
+07:13:35 [INFO] 
+07:13:35 [INFO] Mode: 5 × 4 = 20 pairs (all combinations)
+07:13:35 [INFO] Total pairs to predict: 20
+07:13:35 [INFO] 
+07:13:37 [INFO] Loading model: BiLSTM  |  device: cuda
+07:13:37 [INFO] Running inference on 20 pairs in 1 batches...
+07:13:37 [INFO]   batch 1/1 done
+07:13:37 [INFO] 
+07:13:37 [INFO] ============================================================
+07:13:37 [INFO]   RESULTS SUMMARY
+07:13:37 [INFO] ============================================================
+07:13:37 [INFO]   Total pairs predicted : 20
+07:13:37 [INFO]   BIND                  : 13  (65.0%)
+07:13:37 [INFO]   NO_BIND               : 7  (35.0%)
+07:13:37 [INFO] 
+07:13:37 [INFO]   Top 5 binding candidates:
+07:13:37 [INFO]     [Very High]  0.9994  caffeine ↔ CDK2_human
+07:13:37 [INFO]     [Very High]  0.9987  ibuprofen ↔ A2AR_human
+07:13:37 [INFO]     [Very High]  0.9248  ibuprofen ↔ CDK2_human
+07:13:37 [INFO]     [Very High]  0.9101  aspirin ↔ A2AR_human
+07:13:37 [INFO]     [Very High]  0.9067  caffeine ↔ DHFR_human
+07:13:37 [INFO] 
+07:13:37 [INFO]   Results saved to : examples/demo3_5drugs_vs_4proteins.csv
+07:13:37 [INFO]   Full log saved to: examples/demo3_5drugs_vs_4proteins_log.txt
+07:13:37 [INFO] ============================================================
+07:27:31 [INFO] ============================================================
+07:27:31 [INFO]   GCN-BiLSTM-BAN  —  Batch Prediction
+07:27:31 [INFO] ============================================================
+07:27:31 [INFO] 
+Loading LIGANDS from: examples/drugs.txt
+07:27:31 [INFO]   Loaded 5 raw ligand entries
+07:27:31 [INFO]   Valid ligands: 5 / 5
+07:27:31 [INFO] 
+Loading RECEPTORS from: examples/proteins.fasta
+07:27:31 [INFO]   Loaded 4 raw receptor entries
+07:27:31 [INFO]   Valid receptors: 4 / 4
+07:27:31 [INFO] 
+07:27:31 [INFO] Mode: 5 × 4 = 20 pairs (all combinations)
+07:27:31 [INFO] Total pairs to predict: 20
+07:27:31 [INFO] 
+07:27:33 [INFO] Loading model: BiLSTM  |  device: cpu
+07:27:33 [INFO] Running inference on 20 pairs in 1 batches...
+07:27:34 [INFO]   batch 1/1 done
+07:27:34 [INFO] 
+07:27:34 [INFO] ============================================================
+07:27:34 [INFO]   RESULTS SUMMARY
+07:27:34 [INFO] ============================================================
+07:27:34 [INFO]   Total pairs predicted : 20
+07:27:34 [INFO]   BIND                  : 13  (65.0%)
+07:27:34 [INFO]   NO_BIND               : 7  (35.0%)
+07:27:34 [INFO] 
+07:27:34 [INFO]   Top 5 binding candidates:
+07:27:34 [INFO]     [Very High]  0.9994  caffeine ↔ CDK2_human
+07:27:34 [INFO]     [Very High]  0.9987  ibuprofen ↔ A2AR_human
+07:27:34 [INFO]     [Very High]  0.9251  ibuprofen ↔ CDK2_human
+07:27:34 [INFO]     [Very High]  0.9106  aspirin ↔ A2AR_human
+07:27:34 [INFO]     [Very High]  0.9067  caffeine ↔ DHFR_human
+07:27:34 [INFO] 
+07:27:34 [INFO]   Results saved to : examples/demo3_5drugs_vs_4proteins.csv
+07:27:34 [INFO]   Full log saved to: examples/demo3_5drugs_vs_4proteins_log.txt
+07:27:34 [INFO] ============================================================

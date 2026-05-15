@@ -1,0 +1,42 @@
+SOLVER:
+  BATCH_SIZE: 64
+  MAX_EPOCH: 100
+  LR: 5e-5
+  SEED: 42
+
+DA:
+  TASK: False
+  USE: False
+
+DRUG:
+  # 啟用 BiLSTM 編碼器（SELFIES 序列表示）
+  USE_BILSTM: True
+  VOCAB_SIZE: 100  # 會根據實際數據集自動更新
+  LSTM_HIDDEN_DIM: 64  # BiLSTM 隱藏層維度
+  LSTM_NUM_LAYERS: 2   # LSTM 層數
+  LSTM_DROPOUT: 0.2    # Dropout 率
+  NODE_IN_EMBEDDING: 128  # Token Embedding 維度
+  HIDDEN_LAYERS: [128, 128, 128]  # 輸出維度（與 GCN 保持一致以便比較）
+  MAX_DRUG_LENGTH: 200  # 最大 SELFIES 序列長度
+  PADDING: True
+
+PROTEIN:
+  # 使用 CNN 編碼器（官方版本）
+  USE_BILSTM: False
+  NUM_FILTERS: [128, 128, 128]  # CNN 濾波器數量
+  KERNEL_SIZE: [3, 6, 9]        # CNN 卷積核大小
+  EMBEDDING_DIM: 128            # Embedding 維度
+  MAX_PROTEIN_LENGTH: 1200      # 最大序列長度
+  PADDING: True
+
+DECODER:
+  BINARY: 1
+
+RESULT:
+  OUTPUT_DIR: "./result/DrugBAN_DrugBiLSTM"
+  SAVE_MODEL: True
+
+# Config below only when you use comet
+COMET:
+  PROJECT_NAME: "DrugBAN_DrugBiLSTM_Vanilla"
+  TAG: "Drug_SELFIES_BiLSTM"
