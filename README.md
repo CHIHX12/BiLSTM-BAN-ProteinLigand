@@ -105,7 +105,7 @@ Model checkpoints are hosted separately (GitHub LFS / Zenodo):
 | CNN baseline | `result/DrugBAN/best_model_epoch_90.pth` | 0.9603 |
 | BiLSTM (ours) | `result/DrugBAN_BiLSTM/best_model_epoch_94.pth` | 0.9641 |
 
-> Download from: *(add Zenodo DOI link here after upload)*
+> Checkpoints are included in this repository under `result/`.
 
 ---
 
