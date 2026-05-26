@@ -7,8 +7,8 @@ NO BIND (neg)  : 34
 
 Model: BiLSTM
 ----------------------------------------
-  AUROC       : 0.7600
-  AUPRC       : 0.9880
+  AUROC       : 0.7784
+  AUPRC       : 0.9895
   F1          : 0.8404
   Accuracy    : 0.7305
   Sensitivity : 0.7356
@@ -17,10 +17,10 @@ Model: BiLSTM
 
 Model: CNN
 ----------------------------------------
-  AUROC       : 0.6818
+  AUROC       : 0.6921
   AUPRC       : 0.9836
-  F1          : 0.7798
-  Accuracy    : 0.6461
+  F1          : 0.7803
+  Accuracy    : 0.6471
   Sensitivity : 0.6493
-  Specificity : 0.5588
-  TP=609  TN=19  FP=15  FN=329
+  Specificity : 0.5882
+  TP=609  TN=20  FP=14  FN=329

@@ -43,7 +43,7 @@ THRESHOLDS = {"BiLSTM": 0.1511, "CNN": 0.3100}
 CURATED_POSITIVES = [
     # (drug_name, SMILES, UniProt, note)
     ("Imatinib",
-     "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1-c1ccc(-c2csc(N)n2)cc1",
+     "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1",
      "P00519", "BCR-ABL1 — primary target, Ki~1nM"),
     ("Erlotinib",
      "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
@@ -85,7 +85,7 @@ CURATED_POSITIVES = [
      "N#CC(C)(C)c1cc(Cc2cc(CC(C)(C#N)C#N)cc(C)c2)cc(C)c1",
      "P11511", "CYP19A1/Aromatase — breast cancer"),
     ("Letrozole",
-     "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1",
+     "N#Cc1ccc(C(Cn2cncn2)c2ccc(C#N)cc2)cc1",
      "P11511", "CYP19A1/Aromatase — breast cancer"),
 ]
 
@@ -93,10 +93,10 @@ CURATED_NEGATIVES = [
     # (drug_name, SMILES, UniProt, note)
     # Each drug paired with a protein that is NOT its target
     ("Imatinib",
-     "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1-c1ccc(-c2csc(N)n2)cc1",
+     "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1",
      "P03372", "Imatinib vs ESR1 — unrelated target"),
     ("Imatinib",
-     "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1-c1ccc(-c2csc(N)n2)cc1",
+     "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1",
      "P00374", "Imatinib vs DHFR — unrelated target"),
     ("Tamoxifen",
      "CCC(=C(c1ccccc1)c1ccc(OCCN(C)C)cc1)c1ccccc1",
@@ -132,7 +132,7 @@ CURATED_NEGATIVES = [
      "CC(C)Cc1ccc(cc1)[C@@H](C)C(=O)O",
      "P00519", "Ibuprofen vs BCR-ABL — unrelated"),
     ("Letrozole",
-     "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1",
+     "N#Cc1ccc(C(Cn2cncn2)c2ccc(C#N)cc2)cc1",
      "P00533", "Letrozole vs EGFR — unrelated"),
     ("Anastrozole",
      "N#CC(C)(C)c1cc(Cc2cc(CC(C)(C#N)C#N)cc(C)c2)cc(C)c1",
