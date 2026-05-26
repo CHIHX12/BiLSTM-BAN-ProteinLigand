@@ -1,0 +1,26 @@
+FDA Drug External Validation Report
+====================================
+Source         : curated + ChEMBL FDA pairs
+Total pairs    : 972
+BIND (pos)     : 938
+NO BIND (neg)  : 34
+
+Model: BiLSTM
+----------------------------------------
+  AUROC       : 0.7600
+  AUPRC       : 0.9880
+  F1          : 0.8404
+  Accuracy    : 0.7305
+  Sensitivity : 0.7356
+  Specificity : 0.5882
+  TP=690  TN=20  FP=14  FN=248
+
+Model: CNN
+----------------------------------------
+  AUROC       : 0.6818
+  AUPRC       : 0.9836
+  F1          : 0.7798
+  Accuracy    : 0.6461
+  Sensitivity : 0.6493
+  Specificity : 0.5588
+  TP=609  TN=19  FP=15  FN=329
