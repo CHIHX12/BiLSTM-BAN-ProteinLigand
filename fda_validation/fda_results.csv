@@ -3,8 +3,8 @@ BiLSTM,"BCR-ABL1 — primary target, Ki~1nM",P00519,1,0.7631,1,1,curated
 BiLSTM,"EGFR — primary target, IC50~2nM",P00533,1,0.9985,1,1,curated
 BiLSTM,ESR1 — primary target,P03372,1,0.7842,1,1,curated
 BiLSTM,"DHFR — primary target, Ki~1pM",P00374,1,0.9974,1,1,curated
-BiLSTM,PDE5A — primary target,O76074,1,0.9982,1,1,curated
-BiLSTM,HMGCR — primary target,P04035,1,0.9996,1,1,curated
+BiLSTM,PDE5A — primary target,O76074,1,1.0,1,1,curated
+BiLSTM,HMGCR — primary target,P04035,1,0.9879,1,1,curated
 BiLSTM,PTGS1/COX-1 — primary target,P23219,1,0.0004,0,0,curated
 BiLSTM,PTGS2/COX-2 — primary target,P35354,1,0.0091,0,0,curated
 BiLSTM,EGFR — approved for NSCLC,P00533,1,0.9988,1,1,curated
@@ -12,23 +12,23 @@ BiLSTM,EGFR T790M — 3rd gen TKI,P00533,1,0.6992,1,1,curated
 BiLSTM,EGFR/HER2 dual inhibitor,P00533,1,0.9982,1,1,curated
 BiLSTM,BCR-ABL / Src — 2nd gen TKI,P00519,1,0.9936,1,1,curated
 BiLSTM,BCR-ABL — 2nd gen TKI,P00519,1,0.3228,1,1,curated
-BiLSTM,CYP19A1/Aromatase — breast cancer,P11511,1,0.8142,1,1,curated
-BiLSTM,CYP19A1/Aromatase — breast cancer,P11511,1,0.6863,1,1,curated
+BiLSTM,CYP19A1/Aromatase — breast cancer,P11511,1,0.9893,1,1,curated
+BiLSTM,CYP19A1/Aromatase — breast cancer,P11511,1,0.7838,1,1,curated
 BiLSTM,Imatinib vs ESR1 — unrelated target,P03372,0,0.1718,1,0,curated
 BiLSTM,Imatinib vs DHFR — unrelated target,P00374,0,0.0004,0,1,curated
 BiLSTM,Tamoxifen vs BCR-ABL — unrelated,P00519,0,0.0003,0,1,curated
 BiLSTM,Tamoxifen vs HMGCR — unrelated,P04035,0,0.0388,0,1,curated
 BiLSTM,Aspirin vs EGFR — unrelated,P00533,0,0.7081,1,0,curated
 BiLSTM,Aspirin vs ESR1 — unrelated,P03372,0,0.2839,1,0,curated
-BiLSTM,Sildenafil vs HMGCR — unrelated,P04035,0,0.9943,1,0,curated
-BiLSTM,Sildenafil vs DHFR — unrelated,P00374,0,0.0006,0,1,curated
+BiLSTM,Sildenafil vs HMGCR — unrelated,P04035,0,0.9909,1,0,curated
+BiLSTM,Sildenafil vs DHFR — unrelated,P00374,0,0.0037,0,1,curated
 BiLSTM,Methotrexate vs COX-1 — unrelated,P23219,0,0.0,0,1,curated
-BiLSTM,Atorvastatin vs PDE5A — unrelated,O76074,0,0.5924,1,0,curated
+BiLSTM,Atorvastatin vs PDE5A — unrelated,O76074,0,0.0018,0,1,curated
 BiLSTM,Gefitinib vs HMGCR — unrelated,P04035,0,0.4217,1,0,curated
 BiLSTM,Erlotinib vs COX-1 — unrelated,P23219,0,0.0002,0,1,curated
 BiLSTM,Ibuprofen vs BCR-ABL — unrelated,P00519,0,0.0002,0,1,curated
-BiLSTM,Letrozole vs EGFR — unrelated,P00533,0,0.8496,1,0,curated
-BiLSTM,Anastrozole vs ESR1 — different enzyme,P03372,0,0.9457,1,0,curated
+BiLSTM,Letrozole vs EGFR — unrelated,P00533,0,0.9954,1,0,curated
+BiLSTM,Anastrozole vs ESR1 — different enzyme,P03372,0,0.394,1,0,curated
 BiLSTM,,P43140,1,0.6784,1,1,chembl
 BiLSTM,,P15823,1,0.9959,1,1,chembl
 BiLSTM,,A8K0I3,1,0.7312,1,1,chembl
@@ -975,8 +975,8 @@ CNN,"BCR-ABL1 — primary target, Ki~1nM",P00519,1,0.9964,1,1,curated
 CNN,"EGFR — primary target, IC50~2nM",P00533,1,0.99,1,1,curated
 CNN,ESR1 — primary target,P03372,1,0.9662,1,1,curated
 CNN,"DHFR — primary target, Ki~1pM",P00374,1,0.9999,1,1,curated
-CNN,PDE5A — primary target,O76074,1,0.9948,1,1,curated
-CNN,HMGCR — primary target,P04035,1,0.9998,1,1,curated
+CNN,PDE5A — primary target,O76074,1,0.9996,1,1,curated
+CNN,HMGCR — primary target,P04035,1,0.9995,1,1,curated
 CNN,PTGS1/COX-1 — primary target,P23219,1,0.0026,0,0,curated
 CNN,PTGS2/COX-2 — primary target,P35354,1,0.361,1,1,curated
 CNN,EGFR — approved for NSCLC,P00533,1,0.9995,1,1,curated
@@ -984,23 +984,23 @@ CNN,EGFR T790M — 3rd gen TKI,P00533,1,0.8406,1,1,curated
 CNN,EGFR/HER2 dual inhibitor,P00533,1,0.9982,1,1,curated
 CNN,BCR-ABL / Src — 2nd gen TKI,P00519,1,0.9998,1,1,curated
 CNN,BCR-ABL — 2nd gen TKI,P00519,1,0.6571,1,1,curated
-CNN,CYP19A1/Aromatase — breast cancer,P11511,1,0.8141,1,1,curated
-CNN,CYP19A1/Aromatase — breast cancer,P11511,1,0.9977,1,1,curated
+CNN,CYP19A1/Aromatase — breast cancer,P11511,1,0.9999,1,1,curated
+CNN,CYP19A1/Aromatase — breast cancer,P11511,1,0.997,1,1,curated
 CNN,Imatinib vs ESR1 — unrelated target,P03372,0,0.0216,0,1,curated
 CNN,Imatinib vs DHFR — unrelated target,P00374,0,0.0036,0,1,curated
 CNN,Tamoxifen vs BCR-ABL — unrelated,P00519,0,0.0289,0,1,curated
 CNN,Tamoxifen vs HMGCR — unrelated,P04035,0,0.9992,1,0,curated
 CNN,Aspirin vs EGFR — unrelated,P00533,0,0.9125,1,0,curated
 CNN,Aspirin vs ESR1 — unrelated,P03372,0,0.0,0,1,curated
-CNN,Sildenafil vs HMGCR — unrelated,P04035,0,0.4005,1,0,curated
-CNN,Sildenafil vs DHFR — unrelated,P00374,0,0.0034,0,1,curated
+CNN,Sildenafil vs HMGCR — unrelated,P04035,0,0.6826,1,0,curated
+CNN,Sildenafil vs DHFR — unrelated,P00374,0,0.0504,0,1,curated
 CNN,Methotrexate vs COX-1 — unrelated,P23219,0,0.7614,1,0,curated
-CNN,Atorvastatin vs PDE5A — unrelated,O76074,0,0.0196,0,1,curated
+CNN,Atorvastatin vs PDE5A — unrelated,O76074,0,0.0006,0,1,curated
 CNN,Gefitinib vs HMGCR — unrelated,P04035,0,0.5884,1,0,curated
 CNN,Erlotinib vs COX-1 — unrelated,P23219,0,0.3703,1,0,curated
 CNN,Ibuprofen vs BCR-ABL — unrelated,P00519,0,0.0284,0,1,curated
-CNN,Letrozole vs EGFR — unrelated,P00533,0,0.9986,1,0,curated
-CNN,Anastrozole vs ESR1 — different enzyme,P03372,0,0.868,1,0,curated
+CNN,Letrozole vs EGFR — unrelated,P00533,0,0.9989,1,0,curated
+CNN,Anastrozole vs ESR1 — different enzyme,P03372,0,0.0138,0,1,curated
 CNN,,P43140,1,1.0,1,1,chembl
 CNN,,P15823,1,1.0,1,1,chembl
 CNN,,A8K0I3,1,1.0,1,1,chembl
