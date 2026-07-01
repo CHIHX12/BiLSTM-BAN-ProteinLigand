@@ -1,0 +1,6 @@
+# One drug per line.  Format:  name <Tab> SMILES   (the name is optional)
+# Lines starting with # are ignored.
+caffeine	CN1C=NC2=C1C(=O)N(C(=O)N2C)C
+aspirin	CC(=O)Oc1ccccc1C(=O)O
+ibuprofen	CC(C)Cc1ccc(cc1)[C@@H](C)C(=O)O
+imatinib	Cc1ccc(cc1Nc1nccc(n1)-c1cccnc1)NC(=O)c1ccc(cc1)CN1CCN(C)CC1

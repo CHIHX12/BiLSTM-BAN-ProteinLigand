@@ -30,6 +30,7 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from configs import get_cfg_defaults
@@ -110,7 +111,7 @@ def predict_df(df: pd.DataFrame, model_name: str = "BiLSTM", batch_size: int = 3
     all_attn_top10 = []
 
     with torch.no_grad():
-        for batch in loader:
+        for batch in tqdm(loader, desc=f"Predicting ({model_name})", unit="batch", leave=False):
             v_d, v_p, labels = batch
             if isinstance(v_d, (list, tuple)):
                 v_d = tuple(x.to(DEVICE) for x in v_d)
