@@ -11,8 +11,11 @@ dependencies:
     - torchvision==0.17.1
     - torchaudio==2.2.1
     # DGL with CUDA 12.1  (--find-links must come BEFORE dgl, +cu121 required)
-    - --find-links https://data.dgl.ai/wheels/repo.html
+    # NOTE: the cu121 wheel for dgl 2.1.0 is under wheels/cu121/, not wheels/repo.html
+    - --find-links https://data.dgl.ai/wheels/cu121/repo.html
     - dgl==2.1.0+cu121
+    # torchdata MUST be 0.7.1: dgl 2.1.0 imports torchdata.datapipes (removed in >=0.8)
+    - torchdata==0.7.1
     - dgllife==0.3.2
     # Science / data
     - numpy==1.26.4
