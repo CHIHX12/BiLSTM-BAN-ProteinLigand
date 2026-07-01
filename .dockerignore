@@ -1,0 +1,32 @@
+# Keep the image lean: bundle code + configs + checkpoints, exclude bulky data.
+.git
+.gitignore
+
+# Large data not needed to run predictions (bind-mount at runtime if required)
+FDA_drugs/
+datasets/
+fda_validation/
+repro_comparison/
+results/
+
+# Secrets / local config (never bake into the image; .env.example IS kept)
+.env
+
+# Generated / scratch
+screening/output/
+last_prediction.txt
+predictions.csv
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Container build artifacts themselves
+*.sif
+.singularity/
+build_sif.sh
+teiban.def
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp

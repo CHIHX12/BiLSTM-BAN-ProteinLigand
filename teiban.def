@@ -1,0 +1,148 @@
+Bootstrap: docker
+From: nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+# ============================================================================
+# teiban  (GCN-BiLSTM-BAN / DrugBAN model)  GPU container
+# ----------------------------------------------------------------------------
+# Recreates the `drugban` conda environment (Python 3.10 + PyTorch 2.2.1/cu121
+# + DGL 2.1.0/cu121 + RDKit ...) as a portable, single-file Apptainer/
+# Singularity image (teiban.sif).
+#
+# BUILD (no GPU needed to build; rootless via --fakeroot):
+#   bash build_sif.sh
+#   # or manually:
+#   SINGULARITY_TMPDIR=$HOME/.singularity/tmp \
+#   SINGULARITY_CACHEDIR=$HOME/.singularity/cache \
+#   singularity build --fakeroot teiban.sif teiban.def
+#
+# RUN (on a server WITH an NVIDIA GPU, pass --nv to expose the GPU):
+#   singularity run --nv teiban.sif                      # GPU self-check + help
+#   singularity exec --nv teiban.sif python3 /opt/teiban/predict_simple.py
+#   singularity exec --nv teiban.sif python3 /opt/teiban/predict_batch.py ...
+#
+# The code auto-detects CUDA; without --nv (or on a CPU-only host) it falls
+# back to CPU automatically (slower, but works).
+# ============================================================================
+
+%files
+    # --- prediction / training code ------------------------------------------
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/ban.py                 /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/configs.py             /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/dataloader.py          /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/domain_adaptator.py    /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/main.py                /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/models.py              /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/predict.py             /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/predict_simple.py      /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/predict_batch.py       /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/analyze_promiscuity.py /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/trainer.py             /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/utils.py               /opt/teiban/
+
+    # --- configs + trained model checkpoints (needed to predict) -------------
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/configs    /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/result     /opt/teiban/
+
+    # --- examples + small reference data + screening pipeline -----------------
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/examples   /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/P-L        /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/screening  /opt/teiban/
+
+    # --- docs + env manifests ------------------------------------------------
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/requirements.txt   /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/environment.yml     /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/.env.example        /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/README.md           /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/QUICKSTART.md       /opt/teiban/
+    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/STEP_BY_STEP.md     /opt/teiban/
+
+%post
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+
+    # --- OS-level deps (Python 3.10 ships with ubuntu 22.04) -----------------
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-dev \
+        ca-certificates wget \
+        libxrender1 libxext6 libsm6 libgl1
+    rm -rf /var/lib/apt/lists/*
+
+    python3 -m pip install --no-cache-dir --upgrade pip
+
+    # --- PyTorch 2.2.1 + CUDA 12.1 -------------------------------------------
+    python3 -m pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cu121 \
+        torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1
+
+    # --- DGL 2.1.0 + CUDA 12.1 -----------------------------------------------
+    # NOTE: the cu121 wheel for dgl 2.1.0 lives under wheels/cu121/, NOT the
+    # generic wheels/repo.html (that one is CPU-only) nor torch-2.2/cu121/
+    # (that one starts at dgl 2.2.0).
+    # torchdata MUST be pinned to 0.7.1: dgl 2.1.0's graphbolt imports
+    # torchdata.datapipes, which was removed in torchdata >= 0.8.
+    # pydantic is an UNDECLARED dgl 2.1.0 graphbolt dependency (import fails without it).
+    python3 -m pip install --no-cache-dir \
+        --find-links https://data.dgl.ai/wheels/cu121/repo.html \
+        dgl==2.1.0+cu121 torchdata==0.7.1 "pydantic<3"
+
+    # --- Rest of the scientific / cheminformatics stack ----------------------
+    # numpy is pinned LAST (matches the working conda env) to end on 1.26.4.
+    python3 -m pip install --no-cache-dir \
+        dgllife==0.3.2 \
+        numpy==1.26.4 pandas==2.3.3 scikit-learn==1.7.0 scipy==1.15.2 matplotlib==3.10.1 \
+        rdkit==2024.3.5 \
+        yacs==0.1.8 prettytable==3.17.0 tqdm==4.67.1
+
+    # --- Trim bundled artifacts ----------------------------------------------
+    rm -rf /opt/teiban/screening/output
+    find /opt/teiban -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+
+    # Files are copied in as root; some configs are mode 600. Make everything
+    # readable/traversable so the container works when run as any host user.
+    chmod -R a+rX /opt/teiban
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export PYTHONUNBUFFERED=1
+    export TEIBAN_HOME=/opt/teiban
+
+%runscript
+    echo "================================================================"
+    echo " teiban (GCN-BiLSTM-BAN) container"
+    echo "================================================================"
+    python3 -c "import torch; print(' torch', torch.__version__, '| CUDA build:', torch.version.cuda, '| GPU available:', torch.cuda.is_available())"
+    echo ""
+    echo " Run a tool with:  singularity exec --nv <this>.sif python3 /opt/teiban/<script>"
+    echo "   predict_simple.py                     run with NO args -> guided number menu"
+    echo "   predict_simple.py --input pairs.csv [--output DIR] [--model both]"
+    echo "   predict_batch.py  --ligands D --receptors P          N:M screening (all combos)"
+    echo "   predict.py --help                                    CLI single / CSV / screen"
+    echo ""
+    echo " Tip: add --nv to use the GPU. Bind data with -B /host/path:/data"
+    echo "================================================================"
+
+%labels
+    Project    teiban
+    Model      GCN-BiLSTM-BAN (DrugBAN)
+    Maintainer Chih-Yang Cheng
+    Python     3.10
+    PyTorch    2.2.1+cu121
+    DGL        2.1.0+cu121
+    CUDA       12.1
+
+%help
+    Portable GPU image (teiban) for the GCN-BiLSTM-BAN drug-target interaction model.
+
+    The drugban conda environment is recreated inside this container, so it
+    runs on any host with an NVIDIA driver (>= the one matching CUDA 12.1) and
+    Apptainer/Singularity installed -- no conda, no pip, no setup.
+
+    Quick start (on a GPU host):
+        singularity run  --nv teiban.sif
+        singularity exec --nv teiban.sif python3 /opt/teiban/predict_simple.py
+
+    Code, configs and trained checkpoints live under /opt/teiban.
+    Large datasets are NOT bundled; bind them in with -B if a script needs them:
+        singularity exec --nv -B $PWD/datasets:/opt/teiban/datasets teiban.sif ...

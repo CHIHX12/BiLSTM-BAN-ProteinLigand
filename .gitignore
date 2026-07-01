@@ -25,6 +25,12 @@ screening/output/
 last_prediction.txt
 predictions.csv
 
+# ── Container build artifacts (large / machine-local) ─────
+*.sif
+*.simg
+.singularity/
+build_sif.log
+
 # ── OS / editor ───────────────────────────────────────────
 .DS_Store
 Thumbs.db
