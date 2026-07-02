@@ -49,3 +49,8 @@ Thumbs.db
 *.swo
 .venv/
 .env
+
+# ── Slurm job logs / test artifacts ───────────────────────
+teiban_*.log
+slurm_test_*
+teiban_chunks_*/
