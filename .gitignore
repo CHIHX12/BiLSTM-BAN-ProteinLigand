@@ -33,6 +33,8 @@ chembl-dataset/
 chembl-dataset.tar.gz
 *_pairs.csv
 *_pairs_pred*.csv
+chembl_*.csv
+chembl_*.log
 
 # ── Container build artifacts (large / machine-local) ─────
 *.sif
