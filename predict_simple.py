@@ -344,11 +344,12 @@ AI_SYSTEM = (
     "You do NOT answer binding questions yourself and you do NOT use your own "
     "chemistry knowledge.\n"
     "Reply with ONE JSON object only. Fields: "
-    '{"action":"predict|scan_folder|run_files|need_info|refuse",'
+    '{"action":"predict|scan_folder|run_files|submit_cluster|need_info|refuse",'
     '"name":"short label","smiles":"verbatim SMILES from the user or empty",'
     '"protein":"verbatim sequence from the user or empty",'
     '"folder":"folder path or empty","ligand_file":"file name or empty",'
-    '"receptor_file":"file name or empty",'
+    '"receptor_file":"file name or empty","input_file":"pairs CSV path or empty",'
+    '"gpus":"number of GPUs or empty","partition":"partition name or empty",'
     '"message":"a short, friendly reply in the SAME LANGUAGE the user used"}.\n'
     "Choosing the action:\n"
     '- User pasted a drug SMILES AND a protein sequence -> "predict".\n'
@@ -358,6 +359,10 @@ AI_SYSTEM = (
     "- AFTER a scan, once the user says which file is the drug/ligand list and which "
     'is the protein/receptor list -> "run_files" with folder, ligand_file and '
     "receptor_file (file NAMES only, chosen from the listed files).\n"
+    "- User wants to run a BIG job on the GPU cluster / Slurm (\"submit to the "
+    'cluster\", "run <file> on the cluster with N GPUs") -> "submit_cluster" with '
+    "input_file (the pairs CSV path they gave), gpus (a number, default 1), and "
+    "partition (or empty for the default).\n"
     '- Missing info, "who are you", "how to use", or a drug given only by NAME -> '
     '"need_info": briefly say you predict drug-protein binding; ask them to paste a '
     "SMILES + a sequence, or point you at a folder; and note where to get inputs "
@@ -611,6 +616,21 @@ def ai_mode():
                 print("  Which file is the DRUG (ligand) list, and which is the PROTEIN (receptor) list?")
                 convo += "\n[folder '%s' has: %s]" % (
                     folder, ", ".join(f"{b}={t}" for b, t, _ in info))
+            continue
+
+        if act == "submit_cluster":
+            inp = (res.get("input_file") or "").strip()
+            inp = os.path.abspath(os.path.expanduser(inp)) if inp else ""
+            if not inp or not os.path.isfile(inp):
+                print("  Assistant: please give the path to the pairs CSV file to submit "
+                      "(a file on shared /home).")
+                continue
+            gpus = str(res.get("gpus") or "1").strip()
+            gpus = gpus if gpus.isdigit() and int(gpus) >= 1 else "1"
+            part = (res.get("partition") or "all").strip() or "all"
+            out = os.path.splitext(inp)[0] + "_pred.csv"
+            print(f"  Assistant: preparing a cluster job -- {gpus} GPU(s), partition '{part}'.")
+            submit_or_print(_host_submit_command(inp, out, part, gpus, "BiLSTM"))
             continue
 
         if act == "run_files":
@@ -1099,6 +1119,62 @@ def folder_flow():
         print(f"  Not a folder: {folder or '(empty)'}")
 
 
+def _host_submit_command(inp, out, partition, gpus, model):
+    """Build the host-side submit_teiban.sh command (using the .sif's host path)."""
+    sif = os.environ.get("SINGULARITY_CONTAINER") or os.environ.get("APPTAINER_CONTAINER")
+    host_dir = os.path.dirname(os.path.abspath(sif)) if sif else os.getcwd()
+    submit = os.path.join(host_dir, "submit_teiban.sh")
+    return (f"bash {submit} --input {inp} --output {out} "
+            f"--partition {partition} --chunks {gpus} --model {model}")
+
+
+def submit_or_print(cmd):
+    """Submit via sbatch if available (running on the host), else print the command
+    (running inside the container, which cannot submit Slurm jobs)."""
+    import shutil
+    if shutil.which("sbatch"):
+        import subprocess
+        print(f"\n  Submitting to Slurm:\n    {cmd}\n")
+        subprocess.run(cmd, shell=True)
+    else:
+        print("\n  I'm inside the container, which can't submit Slurm jobs directly.")
+        print("  Copy-paste this on the host / login node to submit it:\n")
+        print(f"    {cmd}\n")
+
+
+def cluster_flow():
+    """Guided Slurm submission: gather params, then submit (host) or print (container)."""
+    print("\n  == Submit a big job to the GPU cluster (Slurm) ==")
+    print("  (input / output must be on shared storage e.g. /home, not /tmp)")
+    inp = _read("\n  Input pairs CSV file: ", allow_back=True)
+    if inp is BACK:
+        return BACK
+    inp = os.path.abspath(os.path.expanduser(inp.strip()))
+    if not os.path.isfile(inp):
+        print(f"  Not a file: {inp}")
+        return BACK
+    out = _read("  Output CSV  (Enter = <input>_pred.csv): ", allow_back=True)
+    if out is BACK:
+        return BACK
+    out = (os.path.abspath(os.path.expanduser(out.strip())) if out.strip()
+           else os.path.splitext(inp)[0] + "_pred.csv")
+    part = _read("  Partition / server group  (Enter = all): ", allow_back=True)
+    if part is BACK:
+        return BACK
+    part = part.strip() or "all"
+    ng = _read("  How many GPUs to use in parallel  (Enter = 1): ", allow_back=True)
+    if ng is BACK:
+        return BACK
+    ng = ng.strip()
+    ng = ng if (ng.isdigit() and int(ng) >= 1) else "1"
+    model = pick("Which model?", [("BiLSTM  (recommended)", "BiLSTM"), ("CNN", "CNN")],
+                 default=1, allow_back=True)
+    if model is BACK:
+        return BACK
+    submit_or_print(_host_submit_command(inp, out, part, ng, model))
+    return True
+
+
 def interactive_menu():
     """Numbered menu with 'q' to quit and 'b' to go back a step."""
     input_mode = None
@@ -1111,11 +1187,17 @@ def interactive_menu():
                 "How do you want to provide the input?",
                 [("Type ONE drug + ONE protein directly", "direct"),
                  ("Scan a FOLDER of drug / protein files (choose which to use)", "folder"),
-                 ("Ask the AI assistant (natural language)", "ai")],
+                 ("Ask the AI assistant (natural language)", "ai"),
+                 ("Submit a big job to the GPU cluster (Slurm)", "cluster")],
                 default=1, allow_back=False,
             )
             step = "gather"
         elif step == "gather":
+            if input_mode == "cluster":
+                if cluster_flow() is BACK:
+                    step = "method"
+                    continue
+                sys.exit(0)   # submitted / command printed -- nothing to run locally
             if input_mode == "direct":
                 got = interactive_single()
             elif input_mode == "folder":
