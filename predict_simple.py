@@ -486,7 +486,7 @@ def ai_setup():
     """Guided setup: enter base URL, auto-detect the model, save to .env."""
     print("\n  == Add / configure an AI agent ==")
     cur = os.environ.get("TEIBAN_AI_URL", "").rstrip("/")
-    hint = f"  [Enter = {cur}]" if cur else "  (example: http://192.168.110.215:8000/v1)"
+    hint = f"  [Enter = {cur}]" if cur else "  (example: http://YOUR-SERVER:8000/v1)"
     url = _read(f"  Base URL (OpenAI-compatible){hint}\n  URL: ", allow_back=True)
     if url is BACK:
         return None
