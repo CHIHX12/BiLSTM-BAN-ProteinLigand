@@ -77,7 +77,8 @@ def load_model(model_name: str):
     return model, cfg, threshold
 
 
-def predict_df(df: pd.DataFrame, model_name: str = "BiLSTM", batch_size: int = 32):
+def predict_df(df: pd.DataFrame, model_name: str = "BiLSTM", batch_size: int = 32,
+               num_workers: int = 0):
     """
     Run prediction on a DataFrame with columns [SMILES, Protein, Y].
     Y column is ignored (can be dummy 0).
@@ -103,7 +104,7 @@ def predict_df(df: pd.DataFrame, model_name: str = "BiLSTM", batch_size: int = 3
         dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=num_workers,
         collate_fn=graph_collate_func,
     )
 
@@ -160,6 +161,9 @@ def parse_args():
     p.add_argument("--output",  default="predictions.csv",
                    help="Output CSV path (default: predictions.csv)")
     p.add_argument("--batch_size", type=int, default=32)
+    p.add_argument("--num_workers", type=int, default=0,
+                   help="Parallel data-loading workers for molecule featurization "
+                        "(0 = single-thread; use 8-16 to speed up large --input runs)")
 
     # Mode A: single pair
     p.add_argument("--drug",    type=str, help="Single drug SMILES")
@@ -206,7 +210,8 @@ def main():
         if not required.issubset(df.columns):
             print(f"ERROR: CSV must have columns: {required}")
             sys.exit(1)
-        result = predict_df(df, model_name=args.model, batch_size=args.batch_size)
+        result = predict_df(df, model_name=args.model, batch_size=args.batch_size,
+                            num_workers=args.num_workers)
         result.to_csv(args.output, index=False)
         n_bind = (result["Y_pred_label"] == 1).sum()
         print(f"\n  Total pairs : {len(result)}")
@@ -244,7 +249,8 @@ def main():
             print("ERROR: --screen requires (--drug + --protein_list) or (--protein + --drug_list)")
             sys.exit(1)
 
-        result = predict_df(df, model_name=args.model, batch_size=args.batch_size)
+        result = predict_df(df, model_name=args.model, batch_size=args.batch_size,
+                            num_workers=args.num_workers)
         result_sorted = result.sort_values("Y_pred_prob", ascending=False)
         result_sorted.to_csv(args.output, index=False)
 
