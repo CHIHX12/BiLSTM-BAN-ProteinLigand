@@ -24,6 +24,15 @@ screening/output/
 # ── Generated prediction output ───────────────────────────
 last_prediction.txt
 predictions.csv
+predict_results_*.csv
+compare_results_*.csv
+chembl_prep.log
+
+# ── Large external datasets (not tracked) ────────────────
+chembl-dataset/
+chembl-dataset.tar.gz
+*_pairs.csv
+*_pairs_pred*.csv
 
 # ── Container build artifacts (large / machine-local) ─────
 *.sif
