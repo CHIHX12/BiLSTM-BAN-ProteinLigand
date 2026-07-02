@@ -1119,13 +1119,28 @@ def folder_flow():
         print(f"  Not a folder: {folder or '(empty)'}")
 
 
-def _host_submit_command(inp, out, partition, gpus, model):
-    """Build the host-side submit_teiban.sh command (using the .sif's host path)."""
+def _host_submit_command(inp, out, partition, gpus, model, cpus=16, batch=128, time="24:00:00"):
+    """Build a host-side Slurm command that needs ONLY the .sif.
+
+    Single GPU  -> a self-contained `sbatch --wrap="singularity exec ... "`.
+    Multiple GPUs -> extract the bundled helper from the .sif, then run it (still
+    only the .sif is required)."""
     sif = os.environ.get("SINGULARITY_CONTAINER") or os.environ.get("APPTAINER_CONTAINER")
-    host_dir = os.path.dirname(os.path.abspath(sif)) if sif else os.getcwd()
-    submit = os.path.join(host_dir, "submit_teiban.sh")
-    return (f"bash {submit} --input {inp} --output {out} "
-            f"--partition {partition} --chunks {gpus} --model {model}")
+    sif = os.path.abspath(sif) if sif else os.path.join(os.getcwd(), "teiban.sif")
+    try:
+        g = int(gpus)
+    except (TypeError, ValueError):
+        g = 1
+    if g <= 1:
+        wrap = (f"singularity exec --nv {sif} python3 /opt/teiban/predict.py "
+                f"--input {inp} --output {out} --model {model} "
+                f"--batch_size {batch} --num_workers {cpus}")
+        return (f"sbatch --job-name=teiban --partition={partition} --gres=gpu:1 "
+                f"--cpus-per-task={cpus} --time={time} --output=teiban_%j.log "
+                f'--wrap="{wrap}"')
+    return (f"singularity exec {sif} cat /opt/teiban/submit_teiban.sh > submit_teiban.sh && "
+            f"bash submit_teiban.sh --input {inp} --output {out} --partition {partition} "
+            f"--chunks {g} --model {model} --sif {sif}")
 
 
 def submit_or_print(cmd):
