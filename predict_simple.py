@@ -174,6 +174,21 @@ def clean_smiles(s: str):
     return standardize_smiles(s)[0]
 
 
+def _is_valid_smiles(s: str):
+    """True if RDKit can parse s as a molecule. Used to tell a SMILES column
+    apart from an ID column (CHEMBL123, PDB codes, etc.). None if RDKit missing."""
+    s = (s or "").strip()
+    if not s:
+        return False
+    try:
+        from rdkit import Chem
+        from rdkit import RDLogger
+        RDLogger.DisableLog("rdApp.*")
+        return Chem.MolFromSmiles(s) is not None
+    except Exception:
+        return None
+
+
 def clean_protein(s: str):
     """Return (cleaned_sequence, note). cleaned_sequence is None if unusable.
 
@@ -711,12 +726,14 @@ def read_smiles_list(path: str):
                 continue
             parts = [p.strip() for p in _split_list_line(ln) if p.strip()]
             if len(parts) >= 2:
-                if looks_like_smiles(parts[-1]):
-                    name, smi = parts[0], parts[-1]
-                elif looks_like_smiles(parts[0]):
-                    smi, name = parts[0], parts[1]
-                else:
-                    name, smi = parts[0], parts[-1]
+                # Pick the column RDKit can parse as a molecule; the rest is the ID
+                # (robust when the ID column contains digits, e.g. CHEMBL123).
+                smi_i = next((i for i, p in enumerate(parts) if _is_valid_smiles(p)), None)
+                if smi_i is None:   # RDKit unavailable or none parse -> heuristic
+                    smi_i = next((i for i, p in enumerate(parts) if looks_like_smiles(p)),
+                                 len(parts) - 1)
+                smi = parts[smi_i]
+                name = next((p for j, p in enumerate(parts) if j != smi_i), "")
             else:
                 smi, name = parts[0], ""
             out.append((name or f"drug{len(out) + 1}", smi))
@@ -780,7 +797,9 @@ def classify_file(path: str):
     for ln in lines[:50]:
         parts = [p for p in _split_list_line(ln) if p.strip()]
         has_p = any(looks_like_protein(p) for p in parts)
-        has_s = any(looks_like_smiles(p) for p in parts)
+        # A real SMILES must be RDKit-parseable (so an ID like a PDB code or
+        # CHEMBL123 in a protein/drug list is not mistaken for a structure).
+        has_s = any(_is_valid_smiles(p) and not looks_like_protein(p) for p in parts)
         if has_p and has_s:
             pair += 1
         elif has_p:
