@@ -344,7 +344,7 @@ AI_SYSTEM = (
     "You do NOT answer binding questions yourself and you do NOT use your own "
     "chemistry knowledge.\n"
     "Reply with ONE JSON object only. Fields: "
-    '{"action":"predict|scan_folder|run_files|build_csv|submit_cluster|check_job|need_info|refuse",'
+    '{"action":"predict|predict_file|scan_folder|run_files|build_csv|submit_cluster|check_job|need_info|refuse",'
     '"name":"short label","smiles":"verbatim SMILES from the user or empty",'
     '"protein":"verbatim sequence from the user or empty",'
     '"folder":"folder path or empty","ligand_file":"file name or empty",'
@@ -355,6 +355,8 @@ AI_SYSTEM = (
     '"message":"a short, friendly reply in the SAME LANGUAGE the user used"}.\n'
     "Choosing the action:\n"
     '- User pasted a drug SMILES AND a protein sequence -> "predict".\n'
+    '- User wants to predict an EXISTING pairs CSV file locally ("run pairs.csv", '
+    '"predict test_pairs.csv") -> "predict_file" with input_file (the CSV path).\n'
     '- User wants to use files in a folder ("use my folder", "current folder", or '
     'gives a path) -> "scan_folder" with folder set ("current folder" -> "."). The '
     "tool lists the files and their detected types; you never read files yourself.\n"
@@ -409,7 +411,38 @@ def load_env():
     return None
 
 
-def ai_extract(user_text, url, model, key, timeout=120):
+def _thinking(func, msg="Assistant is thinking"):
+    """Run func() while showing a spinner (on a TTY) so the user sees it working."""
+    if not _is_tty():
+        print(f"  {msg} ...")
+        return func()
+    import threading
+    import itertools
+    import time
+    done = threading.Event()
+    result = {}
+
+    def spin():
+        for c in itertools.cycle("|/-\\"):
+            if done.is_set():
+                break
+            sys.stdout.write(f"\r  {msg} {c} ")
+            sys.stdout.flush()
+            time.sleep(0.15)
+        sys.stdout.write("\r" + " " * (len(msg) + 8) + "\r")
+        sys.stdout.flush()
+
+    t = threading.Thread(target=spin, daemon=True)
+    t.start()
+    try:
+        result["v"] = func()
+    finally:
+        done.set()
+        t.join(timeout=1)
+    return result["v"]
+
+
+def ai_extract(user_text, url, model, key, timeout=600):
     """Ask the endpoint to turn free text into {action, smiles, protein, ...}."""
     import json
     import requests
@@ -632,7 +665,7 @@ def ai_mode():
             continue
         convo = (convo + "\n" + text).strip()
         try:
-            res = ai_extract(convo, url, model, key)
+            res = _thinking(lambda: ai_extract(convo, url, model, key))
         except Exception as e:
             print(f"  [error] Could not reach the AI server ({e}). Check .env / the server.")
             continue
@@ -651,6 +684,20 @@ def ai_mode():
                 convo += "\n[folder '%s' has: %s]" % (
                     folder, ", ".join(f"{b}={t}" for b, t, _ in info))
             continue
+
+        if act == "predict_file":
+            inp = (res.get("input_file") or "").strip()
+            inp = os.path.abspath(os.path.expanduser(inp)) if inp else ""
+            if not inp or not os.path.isfile(inp):
+                print("  Assistant: please give the path to a pairs CSV file "
+                      "(columns: [name,] SMILES, Protein).")
+                continue
+            got = load_pairs_from_file(inp)
+            if not got:
+                print("  Assistant: no drug-protein pairs found in that file.")
+                continue
+            print(f"  Assistant: predicting {len(got)} pair(s) from {os.path.basename(inp)} ...")
+            return got
 
         if act == "build_csv":
             path, msg = build_pairs_csv(res.get("folder") or folder_ctx or ".",
