@@ -344,11 +344,12 @@ AI_SYSTEM = (
     "You do NOT answer binding questions yourself and you do NOT use your own "
     "chemistry knowledge.\n"
     "Reply with ONE JSON object only. Fields: "
-    '{"action":"predict|scan_folder|run_files|submit_cluster|check_job|need_info|refuse",'
+    '{"action":"predict|scan_folder|run_files|build_csv|submit_cluster|check_job|need_info|refuse",'
     '"name":"short label","smiles":"verbatim SMILES from the user or empty",'
     '"protein":"verbatim sequence from the user or empty",'
     '"folder":"folder path or empty","ligand_file":"file name or empty",'
     '"receptor_file":"file name or empty","input_file":"pairs CSV path or empty",'
+    '"output":"output file path or empty",'
     '"gpus":"number of GPUs or empty","partition":"partition name or empty",'
     '"job_id":"Slurm job id or empty",'
     '"message":"a short, friendly reply in the SAME LANGUAGE the user used"}.\n'
@@ -360,6 +361,10 @@ AI_SYSTEM = (
     "- AFTER a scan, once the user says which file is the drug/ligand list and which "
     'is the protein/receptor list -> "run_files" with folder, ligand_file and '
     "receptor_file (file NAMES only, chosen from the listed files).\n"
+    "- User wants to COMBINE / turn a drug file + a protein file into a pairs CSV "
+    '("make a CSV", "combine them into a file") -> "build_csv" with folder, '
+    "ligand_file, receptor_file, and output (the CSV name they gave, or empty). "
+    "This writes a clean pairs CSV they can then predict or submit to the cluster.\n"
     "- User wants to run a BIG job on the GPU cluster / Slurm (\"submit to the "
     'cluster\", "run <file> on the cluster with N GPUs") -> "submit_cluster" with '
     "input_file (the pairs CSV path they gave), gpus (a number, default 1), and "
@@ -564,6 +569,31 @@ def ai_run_files(folder, ligand_file, receptor_file):
     return pairs, f"{len(drugs)} drug(s) x {len(prots)} protein(s) = {len(pairs)} prediction(s)"
 
 
+def build_pairs_csv(folder, ligand_file, receptor_file, output):
+    """Combine a drug-list file x a protein-list file into a clean pairs CSV
+    (de-salted, de-duplicated, validated) ready for prediction / cluster jobs."""
+    pairs, msg = ai_run_files(folder, ligand_file, receptor_file)
+    if pairs is None:
+        return None, msg
+    good = validate_pairs(pairs)
+    if not good:
+        return None, "no valid pairs remained after checking the inputs"
+    out = os.path.abspath(os.path.expanduser(output.strip())) if (output or "").strip() \
+        else os.path.join(os.getcwd(), "pairs.csv")
+    if not out.lower().endswith(".csv"):
+        out += ".csv"
+    with open(out, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        # keep the drug id and the protein PDB id in their own columns so results
+        # map straight back; SMILES/Protein are what the model reads.
+        w.writerow(["name", "ligand_id", "receptor_id", "SMILES", "Protein"])
+        for p in good:
+            nm = p["name"]
+            lid, rid = nm.rsplit("~", 1) if "~" in nm else (nm, "")
+            w.writerow([nm, lid, rid, p["SMILES"], p["Protein"]])
+    return out, f"{len(good)} clean pair(s) written"
+
+
 def ai_mode():
     """Natural-language front-end. Returns a pair list, or BACK."""
     load_env()
@@ -620,6 +650,18 @@ def ai_mode():
                 print("  Which file is the DRUG (ligand) list, and which is the PROTEIN (receptor) list?")
                 convo += "\n[folder '%s' has: %s]" % (
                     folder, ", ".join(f"{b}={t}" for b, t, _ in info))
+            continue
+
+        if act == "build_csv":
+            path, msg = build_pairs_csv(res.get("folder") or folder_ctx or ".",
+                                        (res.get("ligand_file") or "").strip(),
+                                        (res.get("receptor_file") or "").strip(),
+                                        res.get("output") or "")
+            if path is None:
+                print(f"  Assistant: {msg}")
+                continue
+            print(f"  Assistant: {msg} -> {path}")
+            print("             You can now predict it, or submit it to the cluster.")
             continue
 
         if act == "check_job":
