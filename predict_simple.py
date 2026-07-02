@@ -116,14 +116,18 @@ def _is_yes(ans):
 # ---------------------------------------------------------------------------
 # Input validation / normalisation
 # ---------------------------------------------------------------------------
-# The model's protein vocabulary (utils.CHARPROTSET) is A-Z without J.
-KNOWN_AA = set("ABCDEFGHIKLMNOPQRSTUVWXYZ")
+# The 20 standard amino acids -- the ONLY residues present in the training data
+# (verified on datasets/full.csv). Anything else (B/J/O/U/X/Z ...) is outside the
+# model's learned vocabulary and is flagged.
+STD_AA = set("ACDEFGHIKLMNPQRSTVWY")
 
-# Model input limits (match dataloader.DTIDataset defaults). Longer inputs are
-# SILENTLY truncated by the model, so we warn loudly when they are exceeded --
-# this model is known to degrade on very long proteins.
+# Input bounds derived from the training data (datasets/full.csv, 49,199 rows):
+#   protein length 18-7073 aa (<20 aa = 0.02%);  drug 7-281 heavy atoms.
+# Longer proteins are silently truncated by the model at MAX_PROTEIN_LEN.
 MAX_PROTEIN_LEN = 1200
+MIN_PROTEIN_LEN = 20
 MAX_DRUG_ATOMS = 290
+MIN_DRUG_ATOMS = 6
 
 
 def standardize_smiles(s: str):
@@ -165,8 +169,12 @@ def standardize_smiles(s: str):
     if mol.GetNumAtoms() > MAX_DRUG_ATOMS:
         return None, f"{mol.GetNumAtoms()} atoms exceed the model limit {MAX_DRUG_ATOMS}"
     smi = Chem.MolToSmiles(mol)
-    note = f"removed {n_frags - 1} salt/solvent fragment(s)" if n_frags > 1 else None
-    return smi, note
+    notes = []
+    if n_frags > 1:
+        notes.append(f"removed {n_frags - 1} salt/solvent fragment(s)")
+    if mol.GetNumAtoms() < MIN_DRUG_ATOMS:
+        notes.append(f"only {mol.GetNumAtoms()} atoms (below the model's usual range)")
+    return smi, ("; ".join(notes) if notes else None)
 
 
 def clean_smiles(s: str):
@@ -201,13 +209,17 @@ def clean_protein(s: str):
     s = re.sub(r"[^A-Za-z]", "", s).upper()
     if not s:
         return None, "empty / no amino-acid letters"
-    unknown = [c for c in s if c not in KNOWN_AA]
+    if len(s) < MIN_PROTEIN_LEN:
+        return None, (f"too short ({len(s)} aa); a real protein target is "
+                      f">= {MIN_PROTEIN_LEN} aa (training minimum was 18)")
+    unknown = [c for c in s if c not in STD_AA]
     if unknown:
         frac = len(unknown) / len(s)
         if frac > 0.5:
-            return None, f"{frac:.0%} of characters are not amino acids"
+            return None, f"{frac:.0%} of residues are not standard amino acids"
         uniq = "".join(sorted(set(unknown)))
-        return s, f"{len(unknown)} non-standard residue(s) ({uniq}) treated as unknown"
+        return s, (f"{len(unknown)} non-standard residue(s) ({uniq}) -- outside the "
+                   f"model's 20-amino-acid vocabulary, treated as unknown")
     return s, None
 
 
@@ -258,6 +270,65 @@ def validate_pairs(pairs):
     elif n_dup:
         print(f"  [dedup] removed {n_dup} duplicate pair(s)")
     return good
+
+
+# ---------------------------------------------------------------------------
+# Input validator (dry run: check files, no prediction, no GPU needed)
+# ---------------------------------------------------------------------------
+def _check_list(entries, checker):
+    ok, bad = 0, []
+    for name, val in entries:
+        cleaned, reason = checker(val)
+        if cleaned is None:
+            bad.append((name, reason, val))
+        else:
+            ok += 1
+    return ok, bad
+
+
+def validate_inputs(path):
+    """Validate a file or a folder of SMILES / sequence / pair files and print a
+    pass/fail report. Uses the same checks as prediction but runs no model."""
+    if os.path.isfile(path):
+        files = [path]
+    elif os.path.isdir(path):
+        files = sorted(p for p in glob.glob(os.path.join(path, "*"))
+                       if os.path.isfile(p) and p.lower().endswith(SCAN_EXTS))
+    else:
+        print(f"  Not found: {path}")
+        return
+    if not files:
+        print(f"  No molecular files ({'/'.join(SCAN_EXTS)}) in {path}")
+        return
+
+    grand_ok = grand_total = 0
+    for f in files:
+        kind, n = classify_file(f)
+        print(f"\n  {os.path.basename(f)}  (detected: {kind}, {n} entries)")
+        if kind == "smiles":
+            entries = read_smiles_list(f)
+            ok, bad = _check_list(entries, standardize_smiles)
+        elif kind == "protein":
+            entries = read_protein_list(f)
+            ok, bad = _check_list(entries, clean_protein)
+        elif kind == "pairs":
+            pairs = load_pairs_from_file(f)
+            good = validate_pairs(pairs)
+            entries, ok, bad = pairs, len(good), []
+        else:
+            print("    (unrecognised content -- skipped)")
+            continue
+        total = len(entries)
+        grand_ok += ok
+        grand_total += total
+        print(f"    passed: {ok}/{total}")
+        for name, reason, _ in bad[:15]:
+            print(f"      [FAIL] {name}: {reason}")
+        if len(bad) > 15:
+            print(f"      ... and {len(bad) - 15} more failures")
+
+    verdict = "ALL PASSED" if grand_ok == grand_total else f"{grand_total - grand_ok} FAILED"
+    print(f"\n  VALIDATION SUMMARY: {grand_ok}/{grand_total} entries passed  ({verdict}).")
 
 
 # ---------------------------------------------------------------------------
@@ -1255,11 +1326,28 @@ def parse_args():
     p.add_argument("--drug", help="Single drug SMILES (use with --protein)")
     p.add_argument("--protein", help="Single protein sequence (use with --drug)")
     p.add_argument("--batch_size", type=int, default=32)
+    p.add_argument("--validate", action="store_true",
+                   help="only CHECK the inputs (file/folder of SMILES & sequences) and "
+                        "report pass/fail; run no prediction (fast, no GPU needed)")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
+
+    # Validator (dry run): check inputs and report, run no model.
+    if args.validate:
+        print_banner(full=False)
+        if args.input:
+            validate_inputs(args.input)
+        elif args.drug and args.protein:
+            g = validate_pairs([{"name": "query", "SMILES": args.drug, "Protein": args.protein}])
+            print(f"\n  VALIDATION SUMMARY: {len(g)}/1 pair passed.")
+        else:
+            print("  --validate needs --input FILE_OR_FOLDER  (or --drug + --protein)")
+            sys.exit(1)
+        sys.exit(0)
+
     interactive = not (args.input or args.drug or args.protein)
     print_banner(full=interactive)
 
