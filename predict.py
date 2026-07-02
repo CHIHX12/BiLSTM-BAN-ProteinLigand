@@ -156,7 +156,7 @@ def predict_df(df: pd.DataFrame, model_name: str = "BiLSTM", batch_size: int = 3
 # ---------------------------------------------------------------------------
 def parse_args():
     p = argparse.ArgumentParser(description="GCN-BiLSTM-BAN prediction")
-    p.add_argument("--model",   default="BiLSTM", choices=["BiLSTM", "CNN"],
+    p.add_argument("--model",   default="BiLSTM", choices=["BiLSTM", "CNN", "both"],
                    help="Which model to use (default: BiLSTM)")
     p.add_argument("--output",  default="predictions.csv",
                    help="Output CSV path (default: predictions.csv)")
@@ -210,6 +210,21 @@ def main():
         if not required.issubset(df.columns):
             print(f"ERROR: CSV must have columns: {required}")
             sys.exit(1)
+        if args.model == "both":
+            result = df.copy()
+            for m in ("BiLSTM", "CNN"):
+                r = predict_df(df, model_name=m, batch_size=args.batch_size,
+                               num_workers=args.num_workers)
+                thr = MODEL_CONFIGS[m]["threshold"]
+                result[f"{m}_prob"] = r["Y_pred_prob"].round(4)
+                result[f"{m}_pred"] = (r["Y_pred_prob"] >= thr).map({True: "BIND", False: "NO_BIND"})
+            result["agree"] = (result["BiLSTM_pred"] == result["CNN_pred"]).map({True: "yes", False: "DIFF"})
+            result.to_csv(args.output, index=False)
+            n_diff = (result["agree"] == "DIFF").sum()
+            print(f"\n  Total pairs : {len(result)}   (BiLSTM + CNN compared)")
+            print(f"  Models AGREE : {len(result) - n_diff}   DIFFER : {n_diff}")
+            print(f"  Saved: {args.output}")
+            return
         result = predict_df(df, model_name=args.model, batch_size=args.batch_size,
                             num_workers=args.num_workers)
         result.to_csv(args.output, index=False)

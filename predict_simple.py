@@ -344,12 +344,13 @@ AI_SYSTEM = (
     "You do NOT answer binding questions yourself and you do NOT use your own "
     "chemistry knowledge.\n"
     "Reply with ONE JSON object only. Fields: "
-    '{"action":"predict|scan_folder|run_files|submit_cluster|need_info|refuse",'
+    '{"action":"predict|scan_folder|run_files|submit_cluster|check_job|need_info|refuse",'
     '"name":"short label","smiles":"verbatim SMILES from the user or empty",'
     '"protein":"verbatim sequence from the user or empty",'
     '"folder":"folder path or empty","ligand_file":"file name or empty",'
     '"receptor_file":"file name or empty","input_file":"pairs CSV path or empty",'
     '"gpus":"number of GPUs or empty","partition":"partition name or empty",'
+    '"job_id":"Slurm job id or empty",'
     '"message":"a short, friendly reply in the SAME LANGUAGE the user used"}.\n'
     "Choosing the action:\n"
     '- User pasted a drug SMILES AND a protein sequence -> "predict".\n'
@@ -363,6 +364,9 @@ AI_SYSTEM = (
     'cluster\", "run <file> on the cluster with N GPUs") -> "submit_cluster" with '
     "input_file (the pairs CSV path they gave), gpus (a number, default 1), and "
     "partition (or empty for the default).\n"
+    "- User asks to CHECK / monitor a submitted job (\"check job 45123\", \"how is "
+    'my job doing?\", "is it done?") -> "check_job" with job_id (the number they '
+    "gave, or empty if they did not say).\n"
     '- Missing info, "who are you", "how to use", or a drug given only by NAME -> '
     '"need_info": briefly say you predict drug-protein binding; ask them to paste a '
     "SMILES + a sequence, or point you at a folder; and note where to get inputs "
@@ -618,6 +622,11 @@ def ai_mode():
                     folder, ", ".join(f"{b}={t}" for b, t, _ in info))
             continue
 
+        if act == "check_job":
+            print("  Assistant: checking the job for you ...")
+            check_job(res.get("job_id"))
+            continue
+
         if act == "submit_cluster":
             inp = (res.get("input_file") or "").strip()
             inp = os.path.abspath(os.path.expanduser(inp)) if inp else ""
@@ -630,7 +639,7 @@ def ai_mode():
             part = (res.get("partition") or "all").strip() or "all"
             out = os.path.splitext(inp)[0] + "_pred.csv"
             print(f"  Assistant: preparing a cluster job -- {gpus} GPU(s), partition '{part}'.")
-            submit_or_print(_host_submit_command(inp, out, part, gpus, "BiLSTM"))
+            submit_or_print(_host_submit_command(inp, out, part, gpus, "BiLSTM"), output=out)
             continue
 
         if act == "run_files":
@@ -1143,9 +1152,10 @@ def _host_submit_command(inp, out, partition, gpus, model, cpus=16, batch=128, t
             f"--chunks {g} --model {model} --sif {sif}")
 
 
-def submit_or_print(cmd):
+def submit_or_print(cmd, output=None):
     """Submit via sbatch if available (running on the host), else print the command
-    (running inside the container, which cannot submit Slurm jobs)."""
+    (running inside the container, which cannot submit Slurm jobs). Either way,
+    tell the user how to check the job."""
     import shutil
     if shutil.which("sbatch"):
         import subprocess
@@ -1155,38 +1165,73 @@ def submit_or_print(cmd):
         print("\n  I'm inside the container, which can't submit Slurm jobs directly.")
         print("  Copy-paste this on the host / login node to submit it:\n")
         print(f"    {cmd}\n")
+    print("  After submitting, check it with:")
+    print("    squeue -u $(whoami)            # queue / RUNNING status + job id")
+    print("    tail -f teiban_<JOBID>.log     # live progress (use your job id)")
+    if output:
+        print(f"    result CSV when finished:  {output}")
+
+
+def check_job(job_id):
+    """Report a Slurm job's status + recent progress. Reads the job log (on shared
+    storage -> visible from inside the container) and runs squeue if available."""
+    import glob
+    import shutil
+    jid = str(job_id or "").strip()
+    if not jid:
+        print("  Which job? Give me the job id (the number from 'Submitted batch job ...').")
+        return
+    if shutil.which("squeue"):
+        import subprocess
+        r = subprocess.run(["squeue", "-j", jid, "-h", "-o", "%T %M %R"],
+                           capture_output=True, text=True)
+        st = r.stdout.strip()
+        print(f"  Status: {st}" if st else "  Status: not in the queue (finished or unknown)")
+    logs = glob.glob(f"teiban_{jid}.log") or glob.glob(f"*{jid}*.log")
+    if logs:
+        print(f"  Log '{logs[0]}' -- last lines:")
+        try:
+            for ln in open(logs[0], errors="replace").read().splitlines()[-8:]:
+                print("    " + ln)
+        except OSError as e:
+            print(f"    (could not read log: {e})")
+    else:
+        print(f"  (no log file teiban_{jid}.log in this folder -- run from where you submitted)")
 
 
 def cluster_flow():
     """Guided Slurm submission: gather params, then submit (host) or print (container)."""
     print("\n  == Submit a big job to the GPU cluster (Slurm) ==")
     print("  (input / output must be on shared storage e.g. /home, not /tmp)")
-    inp = _read("\n  Input pairs CSV file: ", allow_back=True)
+    print("  (at any prompt: q = quit, b = go back)")
+    inp = _read("\n  Input pairs CSV file  (q=quit, b=back): ", allow_back=True)
     if inp is BACK:
         return BACK
     inp = os.path.abspath(os.path.expanduser(inp.strip()))
     if not os.path.isfile(inp):
         print(f"  Not a file: {inp}")
         return BACK
-    out = _read("  Output CSV  (Enter = <input>_pred.csv): ", allow_back=True)
+    out = _read("  Output CSV  (Enter = <input>_pred.csv, b=back): ", allow_back=True)
     if out is BACK:
         return BACK
     out = (os.path.abspath(os.path.expanduser(out.strip())) if out.strip()
            else os.path.splitext(inp)[0] + "_pred.csv")
-    part = _read("  Partition / server group  (Enter = all): ", allow_back=True)
+    part = _read("  Partition / server group  (Enter = all, b=back): ", allow_back=True)
     if part is BACK:
         return BACK
     part = part.strip() or "all"
-    ng = _read("  How many GPUs to use in parallel  (Enter = 1): ", allow_back=True)
+    ng = _read("  How many GPUs to use in parallel  (Enter = 1, b=back): ", allow_back=True)
     if ng is BACK:
         return BACK
     ng = ng.strip()
     ng = ng if (ng.isdigit() and int(ng) >= 1) else "1"
-    model = pick("Which model?", [("BiLSTM  (recommended)", "BiLSTM"), ("CNN", "CNN")],
+    model = pick("Which model?",
+                 [("BiLSTM  (recommended)", "BiLSTM"), ("CNN", "CNN"),
+                  ("BOTH  -  compare BiLSTM vs CNN", "both")],
                  default=1, allow_back=True)
     if model is BACK:
         return BACK
-    submit_or_print(_host_submit_command(inp, out, part, ng, model))
+    submit_or_print(_host_submit_command(inp, out, part, ng, model), output=out)
     return True
 
 
