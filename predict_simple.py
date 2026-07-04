@@ -262,7 +262,11 @@ def validate_pairs(pairs):
                 print(f"  [WARN]  {name}: protein length {len(seq)} exceeds the model limit "
                       f"{MAX_PROTEIN_LEN}; only the first {MAX_PROTEIN_LEN} residues are used "
                       f"-- this model is unreliable on very long proteins.")
-        good.append({"name": name, "SMILES": smi, "Protein": seq})
+        row = {"name": name, "SMILES": smi, "Protein": seq}
+        for idk in ("ligand_id", "receptor_id"):   # preserve ids if the caller set them
+            if p.get(idk):
+                row[idk] = p[idk]
+        good.append(row)
     if not verbose:
         print(f"  [preprocess] kept {len(good)}/{n}  (de-salted {n_clean}, "
               f"deduped {n_dup}, skipped {n_badmol + n_badprot} bad, "
@@ -442,9 +446,17 @@ def _thinking(func, msg="Assistant is thinking"):
     return result["v"]
 
 
-def ai_extract(user_text, url, model, key, timeout=600):
-    """Ask the endpoint to turn free text into {action, smiles, protein, ...}."""
+def ai_extract(user_text, url, model, key, timeout=600, attempts=3):
+    """Ask the endpoint to turn free text into {action, smiles, protein, ...}.
+
+    Retries transient failures -- network blips, timeouts, 429/5xx, and the
+    occasional one-off 4xx a busy MoE/vLLM server emits under load -- so a
+    momentary hiccup recovers by itself instead of surfacing a bare error.
+    On a persistent HTTP error it raises with the server's OWN message, so the
+    user sees WHY (e.g. wrong model name) rather than just a status code.
+    """
     import json
+    import time
     import requests
     payload = {
         "model": model,
@@ -456,16 +468,35 @@ def ai_extract(user_text, url, model, key, timeout=600):
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
-    r = requests.post(f"{url}/chat/completions", json=payload, headers=headers, timeout=timeout)
-    r.raise_for_status()
-    content = r.json()["choices"][0]["message"]["content"]
-    m = re.search(r"\{.*\}", content, re.S)
-    if not m:
-        return {"action": "need_info", "message": content.strip()[:200] or "No reply."}
-    try:
-        return json.loads(m.group(0))
-    except Exception:
-        return {"action": "need_info", "message": "Could not understand the assistant's reply."}
+
+    last_err = None
+    for attempt in range(1, attempts + 1):
+        try:
+            r = requests.post(f"{url}/chat/completions", json=payload,
+                              headers=headers, timeout=timeout)
+        except requests.RequestException as e:
+            last_err = f"network error: {e}"
+        else:
+            if r.status_code == 200:
+                content = r.json()["choices"][0]["message"]["content"]
+                m = re.search(r"\{.*\}", content, re.S)
+                if not m:
+                    return {"action": "need_info",
+                            "message": content.strip()[:200] or "No reply."}
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    return {"action": "need_info",
+                            "message": "Could not understand the assistant's reply."}
+            # Non-200: keep the server's explanation for the final error message.
+            body = " ".join((r.text or "").split())
+            last_err = f"HTTP {r.status_code}: {body[:300] or '(no body)'}"
+            # Auth / missing-model errors will never succeed on retry -- stop now.
+            if r.status_code in (401, 403, 404):
+                break
+        if attempt < attempts:
+            time.sleep(1.5 * attempt)
+    raise RuntimeError(last_err or "AI request failed")
 
 
 def _smiles_from_user(smiles, user_text):
@@ -597,7 +628,11 @@ def ai_run_files(folder, ligand_file, receptor_file):
     if not drugs or not prots:
         return None, "Could not read drugs or proteins from those files."
     many = len(drugs) > 1 or len(prots) > 1
-    pairs = [{"name": f"{dn}~{pn}" if many else dn, "SMILES": ds, "Protein": ps}
+    # carry the drug id and protein id explicitly so they survive validation and
+    # land in their own CSV columns -- even for a single 1x1 pair where the
+    # display name has no "~" to split on.
+    pairs = [{"name": f"{dn}~{pn}" if many else dn,
+              "ligand_id": dn, "receptor_id": pn, "SMILES": ds, "Protein": ps}
              for dn, ds in drugs for pn, ps in prots]
     return pairs, f"{len(drugs)} drug(s) x {len(prots)} protein(s) = {len(pairs)} prediction(s)"
 
@@ -622,7 +657,14 @@ def build_pairs_csv(folder, ligand_file, receptor_file, output):
         w.writerow(["name", "ligand_id", "receptor_id", "SMILES", "Protein"])
         for p in good:
             nm = p["name"]
-            lid, rid = nm.rsplit("~", 1) if "~" in nm else (nm, "")
+            # prefer the ids carried through the pipeline; only fall back to
+            # splitting the name for pairs that arrived without explicit ids.
+            lid = p.get("ligand_id")
+            rid = p.get("receptor_id")
+            if lid is None or rid is None:
+                s_lid, s_rid = nm.rsplit("~", 1) if "~" in nm else (nm, "")
+                lid = s_lid if lid is None else lid
+                rid = s_rid if rid is None else rid
             w.writerow([nm, lid, rid, p["SMILES"], p["Protein"]])
     return out, f"{len(good)} clean pair(s) written"
 
@@ -970,11 +1012,23 @@ def read_protein_list(path: str):
 SCAN_EXTS = (".txt", ".smi", ".fasta", ".fa", ".seq", ".csv", ".tsv")
 
 
+def _is_header_line(ln: str) -> bool:
+    """True if a line is a column header (e.g. 'name,SMILES,Protein'), not data --
+    every token is a known column name, none is an actual structure/sequence."""
+    parts = [p.strip().lower() for p in _split_list_line(ln) if p.strip()]
+    if not parts:
+        return False
+    headers = {"name", "id", "smiles", "protein", "sequence", "seq", "ligand",
+               "receptor", "ligand_id", "receptor_id", "pdbid", "y", "label",
+               "target", "drug", "compound", "canonical_smiles"}
+    return all(p in headers for p in parts)
+
+
 def classify_file(path: str):
     """Peek at a file and guess its type -> ('smiles'|'protein'|'pairs'|'unknown', n_entries)."""
     try:
         with open(path, "r", encoding="utf-8-sig", errors="replace") as f:
-            raw = [ln.rstrip("\n") for ln in f]
+            raw = [ln.rstrip("\r\n") for ln in f]
     except Exception:
         return "unknown", 0
     if any(ln.startswith(">") for ln in raw):
@@ -982,8 +1036,13 @@ def classify_file(path: str):
     lines = [ln for ln in raw if ln.strip() and not ln.lstrip().startswith("#")]
     if not lines:
         return "unknown", 0
+    # A header row (e.g. "name,SMILES,Protein") is not a data entry -- exclude it
+    # from both the type vote and the count.
+    data = lines[1:] if _is_header_line(lines[0]) else lines
+    if not data:
+        return "unknown", 0
     prot = smi = pair = 0
-    for ln in lines[:50]:
+    for ln in data[:50]:
         parts = [p for p in _split_list_line(ln) if p.strip()]
         has_p = any(looks_like_protein(p) for p in parts)
         # A real SMILES must be RDKit-parseable (so an ID like a PDB code or
@@ -995,14 +1054,15 @@ def classify_file(path: str):
             prot += 1
         elif has_s:
             smi += 1
-    sample = len(lines[:50])
+    sample = len(data[:50])
+    n = len(data)
     if pair >= max(1, sample // 2) and pair >= prot and pair >= smi:
-        return "pairs", len(lines)
+        return "pairs", n
     if prot >= smi and prot > 0:
-        return "protein", len(lines)
+        return "protein", n
     if smi > 0:
-        return "smiles", len(lines)
-    return "unknown", len(lines)
+        return "smiles", n
+    return "unknown", n
 
 
 def _combine(smiles_path: str, protein_path: str):
@@ -1261,31 +1321,65 @@ def submit_or_print(cmd, output=None):
         print(f"    result CSV when finished:  {output}")
 
 
+def _tail(path, n=8):
+    try:
+        for ln in open(path, errors="replace").read().splitlines()[-n:]:
+            print("    " + ln)
+    except OSError as e:
+        print(f"    (could not read {path}: {e})")
+
+
 def check_job(job_id):
-    """Report a Slurm job's status + recent progress. Reads the job log (on shared
-    storage -> visible from inside the container) and runs squeue if available."""
+    """Report a Slurm job's status + recent progress. Handles both a single-GPU
+    job (teiban_<jid>.log) and a multi-GPU array job (teiban_chunks_*/task_*.log
+    + merge.log). Logs live on shared storage, so this works from the host or
+    from inside the container."""
     import glob
+    import os
     import shutil
     jid = str(job_id or "").strip()
-    if not jid:
-        print("  Which job? Give me the job id (the number from 'Submitted batch job ...').")
-        return
+
     if shutil.which("squeue"):
         import subprocess
-        r = subprocess.run(["squeue", "-j", jid, "-h", "-o", "%T %M %R"],
+        # -j accepts a plain id OR an array id (e.g. 45120 matches 45120_0..N).
+        args = ["squeue"] + (["-j", jid] if jid else ["-u", os.environ.get("USER", "")])
+        r = subprocess.run(args + ["-o", "%.14i %.10T %.6M %R"],
                            capture_output=True, text=True)
-        st = r.stdout.strip()
-        print(f"  Status: {st}" if st else "  Status: not in the queue (finished or unknown)")
-    logs = glob.glob(f"teiban_{jid}.log") or glob.glob(f"*{jid}*.log")
-    if logs:
-        print(f"  Log '{logs[0]}' -- last lines:")
-        try:
-            for ln in open(logs[0], errors="replace").read().splitlines()[-8:]:
-                print("    " + ln)
-        except OSError as e:
-            print(f"    (could not read log: {e})")
-    else:
-        print(f"  (no log file teiban_{jid}.log in this folder -- run from where you submitted)")
+        rows = [l for l in r.stdout.splitlines()[1:] if l.strip()]
+        if rows:
+            print("  In the queue:")
+            for l in rows:
+                print("    " + l)
+        elif jid:
+            print(f"  Job {jid}: not in the queue -- it has finished (or already merged).")
+
+    shown = False
+    # single-GPU job log
+    for lg in (glob.glob(f"teiban_{jid}.log") if jid else []):
+        print(f"  Log '{lg}' -- last lines:")
+        _tail(lg)
+        shown = True
+
+    # multi-GPU array job: look at the most recent chunk directory
+    chunks = sorted(glob.glob("teiban_chunks_*"), key=os.path.getmtime)
+    if chunks:
+        cd = chunks[-1]
+        parts = glob.glob(os.path.join(cd, "part_*.csv"))
+        preds = glob.glob(os.path.join(cd, "pred_*.csv"))
+        tasks = sorted(glob.glob(os.path.join(cd, "task_*.log")))
+        merge = glob.glob(os.path.join(cd, "merge.log"))
+        print(f"  Multi-GPU job: {len(preds)}/{len(parts)} chunk(s) finished  ({os.path.basename(cd)})")
+        if tasks:
+            print(f"    latest task log ({os.path.basename(tasks[-1])}):")
+            _tail(tasks[-1], n=4)
+        if merge:
+            print("    " + " ".join(open(merge[0], errors="replace").read().split()))
+        shown = True
+
+    if not shown:
+        where = f"teiban_{jid}.log" if jid else "teiban_*.log / teiban_chunks_*"
+        print(f"  (no job logs found here -- run from the folder you submitted from; "
+              f"looked for {where})")
 
 
 def cluster_flow():
