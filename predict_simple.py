@@ -1431,9 +1431,13 @@ def interactive_menu():
                 [("Type ONE drug + ONE protein directly", "direct"),
                  ("Scan a FOLDER of drug / protein files (choose which to use)", "folder"),
                  ("Ask the AI assistant (natural language)", "ai"),
-                 ("Submit a big job to the GPU cluster (Slurm)", "cluster")],
+                 ("Submit a big job to the GPU cluster (Slurm)", "cluster"),
+                 ("Help / about  -  what's inside + how to use", "help")],
                 default=1, allow_back=False,
             )
+            if input_mode == "help":
+                print_about()
+                continue          # show the info, then stay on this menu
             step = "gather"
         elif step == "gather":
             if input_mode == "cluster":
@@ -1602,6 +1606,35 @@ def _print_table(headers, rows):
 
 
 # ---------------------------------------------------------------------------
+def print_about():
+    """Menu option [5]: what is bundled in the image + the key usage notes."""
+    line = "=" * 66
+    print("\n  " + line)
+    print("   TEIBAN  -  what's inside this image & how to use it")
+    print("  " + line)
+    print("""
+  Scripts in the container (under /opt/teiban):
+    predict_simple.py   this guided menu (drug+protein / folder / AI / cluster)
+    predict.py          command line: single pair, CSV batch, or screening
+    predict_batch.py    N x M batch (every drug against every protein)
+    submit_teiban.sh    submit a big job to the Slurm cluster (multi-GPU)
+    configs/ + result/  model settings + trained BiLSTM & CNN checkpoints
+
+  Good to know:
+    * GPU     add --nv to use the GPU; without a GPU/driver the model cannot
+              run (DGL needs the CUDA driver).
+    * Inputs  drug   -> a SMILES string        (get it from PubChem)
+              target -> an amino-acid sequence  (get it from UniProt)
+    * Files   drug list = one SMILES per line, or  ID <tab> SMILES
+              protein   = one sequence per line, or PDBID <tab> sequence
+    * Output  saved as a CSV; ligand_id / receptor_id are kept for lookup.
+    * Cluster keep the .sif on shared storage (/home) so compute nodes see it;
+              pick a GPU partition (all / intel; the amd default has no GPU).
+    * AI      optional; needs a .env in the current folder (menu 'setup').
+              It never invents a SMILES and never leaks its instructions.""")
+    print("  " + line)
+
+
 def print_banner(full=True):
     line = "=" * 66
     if not full:
