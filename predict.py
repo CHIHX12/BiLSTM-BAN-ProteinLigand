@@ -189,18 +189,35 @@ def main():
     if args.drug and args.protein and not args.screen:
         print(f"\n[predict] Mode: single pair")
         df = pd.DataFrame([{"SMILES": args.drug, "Protein": args.protein, "Y": 0}])
-        result = predict_df(df, model_name=args.model, batch_size=1)
-        prob  = result["Y_pred_prob"].iloc[0]
-        label = result["Y_pred_label"].iloc[0]
-        top10 = result["attention_top10_residues"].iloc[0]
-        thr   = MODEL_CONFIGS[args.model]["threshold"]
         print(f"\n  Drug:    {args.drug[:60]}...")
         print(f"  Protein: {args.protein[:40]}... (len={len(args.protein)})")
-        print(f"\n  Binding probability : {prob:.4f}")
-        print(f"  Predicted label     : {'BIND' if label else 'NO BIND'} (threshold={thr})")
-        print(f"  Top-10 attention residues: {top10}")
-        result.to_csv(args.output, index=False)
-        print(f"\n  Saved: {args.output}")
+        if args.model == "both":
+            result = df.copy()
+            for m in ("BiLSTM", "CNN"):
+                r = predict_df(df, model_name=m, batch_size=1)
+                thr = MODEL_CONFIGS[m]["threshold"]
+                result[f"{m}_prob"] = r["Y_pred_prob"].round(4)
+                result[f"{m}_pred"] = (r["Y_pred_prob"] >= thr).map({True: "BIND", False: "NO_BIND"})
+                prob = float(r["Y_pred_prob"].iloc[0])
+                pred = result[f"{m}_pred"].iloc[0]
+                print(f"\n  [{m}]  Binding probability : {prob:.4f}")
+                print(f"  [{m}]  Predicted label     : {pred} (threshold={thr})")
+            result["agree"] = (result["BiLSTM_pred"] == result["CNN_pred"]).map({True: "yes", False: "DIFF"})
+            n_diff = (result["agree"] == "DIFF").sum()
+            print(f"\n  Models {'AGREE' if n_diff == 0 else 'DIFFER'}")
+            result.to_csv(args.output, index=False)
+            print(f"\n  Saved: {args.output}")
+        else:
+            result = predict_df(df, model_name=args.model, batch_size=1)
+            prob  = result["Y_pred_prob"].iloc[0]
+            label = result["Y_pred_label"].iloc[0]
+            top10 = result["attention_top10_residues"].iloc[0]
+            thr   = MODEL_CONFIGS[args.model]["threshold"]
+            print(f"\n  Binding probability : {prob:.4f}")
+            print(f"  Predicted label     : {'BIND' if label else 'NO BIND'} (threshold={thr})")
+            print(f"  Top-10 attention residues: {top10}")
+            result.to_csv(args.output, index=False)
+            print(f"\n  Saved: {args.output}")
 
     # ---- Mode B: batch CSV -------------------------------------------------
     elif args.input:
