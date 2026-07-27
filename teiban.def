@@ -25,37 +25,39 @@ From: nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 # ============================================================================
 
 %files
+    # Source paths are relative to the build context: run the build from the
+    # repository root (build_sif.sh already does this).
     # --- prediction / training code ------------------------------------------
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/ban.py                 /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/configs.py             /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/dataloader.py          /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/domain_adaptator.py    /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/main.py                /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/models.py              /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/predict.py             /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/predict_simple.py      /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/predict_batch.py       /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/analyze_promiscuity.py /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/trainer.py             /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/utils.py               /opt/teiban/
+    ban.py                 /opt/teiban/
+    configs.py             /opt/teiban/
+    dataloader.py          /opt/teiban/
+    domain_adaptator.py    /opt/teiban/
+    main.py                /opt/teiban/
+    models.py              /opt/teiban/
+    predict.py             /opt/teiban/
+    predict_simple.py      /opt/teiban/
+    predict_batch.py       /opt/teiban/
+    analyze_promiscuity.py /opt/teiban/
+    trainer.py             /opt/teiban/
+    utils.py               /opt/teiban/
 
     # --- configs + trained model checkpoints (needed to predict) -------------
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/configs    /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/result     /opt/teiban/
+    configs    /opt/teiban/
+    result     /opt/teiban/
 
     # --- examples + small reference data + screening pipeline -----------------
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/examples   /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/P-L        /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/screening  /opt/teiban/
+    examples   /opt/teiban/
+    P-L        /opt/teiban/
+    screening  /opt/teiban/
 
     # --- docs + env manifests ------------------------------------------------
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/requirements.txt   /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/environment.yml     /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/.env.example        /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/submit_teiban.sh    /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/README.md           /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/QUICKSTART.md       /opt/teiban/
-    /home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak/STEP_BY_STEP.md     /opt/teiban/
+    requirements.txt   /opt/teiban/
+    environment.yml     /opt/teiban/
+    .env.example        /opt/teiban/
+    submit_teiban.sh    /opt/teiban/
+    README.md           /opt/teiban/
+    QUICKSTART.md       /opt/teiban/
+    STEP_BY_STEP.md     /opt/teiban/
 
 %post
     set -e
