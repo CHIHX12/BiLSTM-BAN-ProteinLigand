@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the software via its Zenodo DOI and the associated paper below."
+title: "BiLSTM-Powered Bilinear Attention for Protein–Ligand Prediction"
+type: software
+authors:
+  - family-names: Cheng
+    given-names: Chih-Yang
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    affiliation: "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan; National Chung Hsing University, Taichung, Taiwan"
+  - family-names: Chen
+    given-names: Yi-An
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    affiliation: "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan"
+  - family-names: Li
+    given-names: Feng-Yin
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    affiliation: "National Chung Hsing University, Taichung, Taiwan"
+  - family-names: Re
+    given-names: Suyong
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    affiliation: "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan"
+license: MIT
+repository-code: "https://github.com/CHIHX12/BiLSTM-BAN-ProteinLigand"
+version: "1.0.0"
+date-released: "2026-05-10"
+keywords:
+  - drug-target interaction
+  - protein-ligand binding
+  - graph convolutional network
+  - BiLSTM
+  - bilinear attention network
+  - interpretable deep learning
+  - virtual screening
+preferred-citation:
+  type: article
+  title: "BiLSTM-Powered Bilinear Attention for Protein–Ligand Prediction"
+  authors:
+    - family-names: Cheng
+      given-names: Chih-Yang
+    - family-names: Chen
+      given-names: Yi-An
+    - family-names: Li
+      given-names: Feng-Yin
+    - family-names: Re
+      given-names: Suyong
+  year: 2026
+  journal: "bioRxiv"
+  doi: "10.1101/2026.05.10.724184"
