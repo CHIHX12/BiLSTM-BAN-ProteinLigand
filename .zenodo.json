@@ -5,10 +5,10 @@
   "license": "MIT",
   "access_right": "open",
   "creators": [
-    { "name": "Cheng, Chih-Yang", "affiliation": "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan; National Chung Hsing University, Taichung, Taiwan" },
-    { "name": "Chen, Yi-An", "affiliation": "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan" },
-    { "name": "Li, Feng-Yin", "affiliation": "National Chung Hsing University, Taichung, Taiwan" },
-    { "name": "Re, Suyong", "affiliation": "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan" }
+    { "name": "Cheng, Chih-Yang", "orcid": "0009-0002-2694-247X", "affiliation": "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan; National Chung Hsing University, Taichung, Taiwan" },
+    { "name": "Chen, Yi-An", "orcid": "0000-0003-4936-8060", "affiliation": "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan" },
+    { "name": "Li, Feng-Yin", "orcid": "0000-0002-8829-5776", "affiliation": "National Chung Hsing University, Taichung, Taiwan" },
+    { "name": "Re, Suyong", "orcid": "0000-0002-3752-6554", "affiliation": "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan" }
   ],
   "keywords": [
     "drug-target interaction",

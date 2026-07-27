@@ -5,19 +5,19 @@ type: software
 authors:
   - family-names: Cheng
     given-names: Chih-Yang
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    orcid: "https://orcid.org/0009-0002-2694-247X"
     affiliation: "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan; National Chung Hsing University, Taichung, Taiwan"
   - family-names: Chen
     given-names: Yi-An
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    orcid: "https://orcid.org/0000-0003-4936-8060"
     affiliation: "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan"
   - family-names: Li
     given-names: Feng-Yin
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    orcid: "https://orcid.org/0000-0002-8829-5776"
     affiliation: "National Chung Hsing University, Taichung, Taiwan"
   - family-names: Re
     given-names: Suyong
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    orcid: "https://orcid.org/0000-0002-3752-6554"
     affiliation: "National Institutes of Biomedical Innovation, Health and Nutrition (NIBN), Osaka, Japan"
 license: MIT
 repository-code: "https://github.com/CHIHX12/BiLSTM-BAN-ProteinLigand"
