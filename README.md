@@ -89,8 +89,14 @@ python repro_comparison/generate_pocket_pmls.py
 
 For batch drug-protein screening:
 ```bash
-python predict_batch.py --drug examples/drugs.txt --protein examples/proteins.fasta
+python predict_batch.py --ligands examples/drugs.txt --receptors examples/proteins.fasta
 ```
+
+> **Input vs. output files:** `predict_batch.py` takes ligand/protein *input*
+> files via `--ligands` and `--receptors` (e.g. `examples/drugs.txt`,
+> `examples/proteins.fasta`). The `examples/demo*.csv` files are example
+> *outputs* from earlier runs, **not** inputs. For `predict.py --input`, provide
+> a CSV with `SMILES` and `Protein` columns (an optional `Y` column is ignored).
 
 For the full walkthrough see **[QUICKSTART.md](QUICKSTART.md)** and **[STEP_BY_STEP.md](STEP_BY_STEP.md)**.
 
