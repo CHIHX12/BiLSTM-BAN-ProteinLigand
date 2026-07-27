@@ -1,6 +1,6 @@
 {
   "title": "BiLSTM-Powered Bilinear Attention for Protein–Ligand Prediction",
-  "description": "Source code and trained model for a weakly supervised deep learning framework that integrates graph convolutional networks (GCN) for ligand encoding and bidirectional long short-term memory (BiLSTM) for protein encoding, fused via a bilinear attention network (BAN), to predict protein–ligand binding and to localize binding-site residues directly from sequence. Associated preprint: https://doi.org/10.1101/2026.05.10.724184",
+  "description": "Source code and trained model for a weakly supervised deep learning framework that integrates graph convolutional networks (GCN) for ligand encoding and bidirectional long short-term memory (BiLSTM) for protein encoding, fused via a bilinear attention network (BAN), to predict protein–ligand binding and to localize binding-site residues directly from sequence. Associated preprint: https://doi.org/10.64898/2026.05.10.724184",
   "upload_type": "software",
   "license": "MIT",
   "access_right": "open",
@@ -20,6 +20,6 @@
     "virtual screening"
   ],
   "related_identifiers": [
-    { "identifier": "10.1101/2026.05.10.724184", "relation": "isSupplementTo", "scheme": "doi" }
+    { "identifier": "10.64898/2026.05.10.724184", "relation": "isSupplementTo", "scheme": "doi" }
   ]
 }

@@ -54,3 +54,13 @@ Thumbs.db
 teiban_*.log
 slurm_test_*
 teiban_chunks_*/
+
+# ── Private / unpublished manuscript — NEVER publish ───────
+# Contains the manuscript, cover letter, and suggested reviewer names.
+B1_sci_adv/
+
+# ── Local experiment outputs (not part of released software) ─
+results/
+fda_validation/*.log
+fda_validation/davis_results*.csv
+fda_validation/ponatinib_results.csv

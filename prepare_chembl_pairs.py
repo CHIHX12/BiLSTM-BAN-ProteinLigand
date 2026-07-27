@@ -7,11 +7,12 @@ Streaming and memory-conscious (each unique compound is standardised once).
 
 Usage: python prepare_chembl_pairs.py <dataset_dir> <output.csv>
 """
+import os
 import sys
 import csv
 import hashlib
 
-ROOT = "/home/cycheng/800milion_GPR/predict_affi/New_Docking_backup_v2/network/GCN-BILSTM-BAN-bak"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 from predict_simple import standardize_smiles, clean_protein  # reuse tool preprocessing
 
