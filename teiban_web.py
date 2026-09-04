@@ -436,95 +436,124 @@ PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TEIBAN screening</title>
 <style>
-:root{font-size:18px;--bg:#0e1116;--panel:#161b22;--panel2:#1c232d;--line:#2a3340;
---txt:#e9eef4;--muted:#9fb0bf;--accent:#3fb950;--accent2:#3b8eea;--warn:#e3b341;--rad:12px}
+:root{--bg:#0b0e14;--panel:#141a23;--panel2:#1a212c;--line:#2b3542;--line2:#39434f;
+--txt:#eaf0f7;--muted:#93a1b1;--faint:#6b7787;--accent:#3fd07a;--accent-d:#1f9d57;
+--blue:#5aa2ff;--warn:#e6b34a;--rad:16px;--rads:10px;
+--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.28)}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-font-size:1rem;line-height:1.6;background:var(--bg);color:var(--txt)}
-header{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;align-items:center;
-gap:16px;background:linear-gradient(180deg,#11161d,#0e1116);flex-wrap:wrap}
-header h1{margin:0;font-size:1.5rem;letter-spacing:.5px}
-header .tag{color:var(--accent);font-weight:800}
-header small{color:var(--muted);font-size:1rem}
+html{font-size:17px}
+body{margin:0;color:var(--txt);line-height:1.6;-webkit-font-smoothing:antialiased;
+font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+background:radial-gradient(1100px 560px at 72% -12%,#16202e 0,var(--bg) 62%)}
+header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:22px 30px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand .logo{font-size:1.6rem;font-weight:800;letter-spacing:.14em;
+background:linear-gradient(92deg,var(--accent),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand .sub{font-size:1.05rem;font-weight:600;letter-spacing:.01em}
+.tagline{color:var(--muted);font-size:.92rem}
 .spacer{flex:1}
-.fontctl button{font-size:1rem;padding:4px 12px;margin-left:6px;border-radius:8px;
-border:1px solid var(--line);background:var(--panel2);color:var(--txt);cursor:pointer;font-weight:700}
-.wrap{display:grid;grid-template-columns:minmax(340px,1fr) minmax(420px,1.1fr);
-gap:20px;padding:20px;max-width:1400px;margin:0 auto}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);overflow:hidden}
-.card h2{margin:0;padding:14px 18px;font-size:1rem;text-transform:uppercase;letter-spacing:.6px;
-color:var(--muted);border-bottom:1px solid var(--line);background:var(--panel2)}
-.card .body{padding:16px 18px}
-.crumb{font-size:.92rem;color:var(--muted);word-break:break-all;margin-bottom:10px}
-.list{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px}
-.row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #202834}
-.row:last-child{border-bottom:0}.row:hover{background:#1e2733}
-.row .ic{width:20px;text-align:center}
-.row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
-.row .sz{color:var(--muted);font-size:.82rem;white-space:nowrap}
-.chip{font-size:.8rem;padding:3px 9px;border-radius:20px;border:1px solid var(--line);
-background:#0d1117;color:var(--txt);cursor:pointer;white-space:nowrap}
-.chip:hover{border-color:var(--accent);color:var(--accent)}
-.chip.p:hover{border-color:var(--accent2);color:var(--accent2)}
-.picks{margin-top:12px;background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:12px;font-size:.95rem}
-.picks .f{display:inline-flex;align-items:center;gap:6px;background:#0d1117;border:1px solid var(--line);
-border-radius:20px;padding:3px 10px;margin:3px 4px 0 0;font-size:.9rem}
-.picks .f b{color:var(--accent)}.picks .x{cursor:pointer;color:var(--muted);font-weight:800}
-label{display:block;font-size:.92rem;color:var(--muted);margin:14px 0 5px}
-input,select,textarea{width:100%;background:#0d1117;border:1px solid var(--line);color:var(--txt);
-border-radius:10px;padding:11px 12px;font:inherit;font-size:1rem}
-textarea{resize:vertical;min-height:96px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92rem}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-button.go{margin-top:18px;width:100%;padding:14px;border:0;border-radius:10px;background:var(--accent);
-color:#04140a;font-weight:800;font-size:1.1rem;cursor:pointer}
-button.go:disabled{opacity:.5;cursor:not-allowed}
-.prog{margin-top:16px;display:none}
-.bar{height:18px;background:#0d1117;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .4s}
-.pstat{font-size:.95rem;color:var(--muted);margin-top:9px;display:flex;justify-content:space-between}
-.note{font-size:.95rem;color:var(--warn);margin-top:9px;white-space:pre-wrap}
-.ok{color:var(--accent)}a.dl{color:var(--accent2);font-weight:700}
-details.ai{margin:0 20px 20px;max-width:1400px}
-details.ai{margin-left:auto;margin-right:auto}
-.aibox{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);padding:16px 18px}
-summary{cursor:pointer;font-size:1.05rem;font-weight:700;padding:12px 18px;background:var(--panel2);
-border:1px solid var(--line);border-radius:var(--rad);list-style:none}
+.fontctl{display:flex;gap:6px;align-items:center;color:var(--faint);font-size:.82rem}
+.fontctl button{width:38px;height:34px;border-radius:9px;border:1px solid var(--line2);
+background:var(--panel2);color:var(--txt);cursor:pointer;font-weight:700}
+.fontctl button:hover{border-color:var(--accent);color:var(--accent)}
+.wrap{display:grid;grid-template-columns:minmax(340px,1fr) minmax(430px,1.05fr);
+gap:24px;padding:26px;max-width:1440px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);box-shadow:var(--shadow);overflow:hidden}
+.card>h2{margin:0;display:flex;align-items:center;gap:12px;padding:18px 22px;
+font-size:1.15rem;font-weight:700;border-bottom:1px solid var(--line)}
+.step{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+font-size:.95rem;font-weight:800;color:#05130b;background:linear-gradient(135deg,var(--accent),var(--accent-d))}
+.card .body{padding:22px}
+.crumb{font-size:.88rem;color:var(--muted);word-break:break-all;margin-bottom:12px;
+font-family:ui-monospace,Menlo,Consolas,monospace}
+.list{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:var(--rads);background:#0e131b}
+.row{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid #1b222d}
+.row:last-child{border-bottom:0}.row:hover{background:#19222f}
+.row .ic{width:22px;text-align:center;font-size:1.05rem}
+.row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-size:.95rem}
+.row .sz{color:var(--faint);font-size:.8rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip{font-size:.77rem;font-weight:600;padding:4px 11px;border-radius:999px;border:1px solid var(--line2);
+background:#0e131b;color:var(--muted);cursor:pointer;white-space:nowrap}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:rgba(63,208,122,.08)}
+.chip.p:hover{border-color:var(--blue);color:var(--blue);background:rgba(90,162,255,.08)}
+.picks{margin-top:16px;background:var(--panel2);border:1px solid var(--line);border-radius:var(--rads);
+padding:14px 16px;font-size:.93rem;color:var(--muted)}
+.picks .lab{color:var(--faint);font-size:.74rem;text-transform:uppercase;letter-spacing:.06em}
+.picks i{color:var(--faint)}
+.pill{display:inline-flex;align-items:center;gap:7px;background:#0e131b;border:1px solid var(--line2);
+border-radius:999px;padding:4px 11px;margin:5px 5px 0 0;font-size:.87rem;color:var(--txt)}
+.pill b{color:var(--accent);font-weight:600}
+.pill .x{cursor:pointer;color:var(--faint);font-weight:800}.pill .x:hover{color:var(--warn)}
+.sub-block{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.hint{font-size:.9rem;color:var(--muted);margin-bottom:10px}
+label{display:block;font-size:.76rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+color:var(--faint);margin:16px 0 6px}
+input,select,textarea{width:100%;background:#0e131b;border:1px solid var(--line2);color:var(--txt);
+border-radius:var(--rads);padding:11px 13px;font:inherit;font-size:.97rem;
+transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(63,208,122,.16)}
+textarea{resize:vertical;min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.89rem;line-height:1.5}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--rads);
+cursor:pointer;font-weight:700;border:1px solid transparent;transition:transform .06s,filter .15s,border-color .15s}
+.btn:active{transform:translateY(1px)}
+.btn-primary{width:100%;margin-top:20px;padding:15px;font-size:1.06rem;color:#05130b;
+background:linear-gradient(135deg,var(--accent),var(--accent-d))}
+.btn-primary:hover{filter:brightness(1.06)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn-ghost{padding:11px 16px;font-size:.94rem;background:var(--panel2);color:var(--txt);border-color:var(--line2)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-wide{width:100%;margin-top:12px}
+.prog{margin-top:18px;display:none}
+.bar{height:12px;background:#0e131b;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;border-radius:999px;
+background:linear-gradient(90deg,var(--blue),var(--accent));transition:width .5s ease}
+.pstat{font-size:.9rem;color:var(--muted);margin-top:10px;display:flex;justify-content:space-between;gap:12px}
+.note{font-size:.9rem;color:var(--warn);margin-top:10px;white-space:pre-wrap}
+.ok{color:var(--accent);font-weight:600}
+a.dl{color:var(--blue);font-weight:700;text-decoration:none}a.dl:hover{text-decoration:underline}
+details.ai{max-width:1440px;margin:0 auto 26px;padding:0 26px}
+details.ai summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;
+padding:15px 20px;font-size:1.05rem;font-weight:700;background:var(--panel);
+border:1px solid var(--line);border-radius:var(--rad);box-shadow:var(--shadow)}
+details.ai[open] summary{border-radius:var(--rad) var(--rad) 0 0;border-bottom:0}
 summary::-webkit-details-marker{display:none}
-.chat{max-height:300px;overflow:auto;margin-top:12px;display:flex;flex-direction:column;gap:8px}
-.msg{padding:10px 13px;border-radius:12px;max-width:85%;white-space:pre-wrap;font-size:.98rem}
-.msg.u{align-self:flex-end;background:#173a5e;color:#e9f2ff}
-.msg.a{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
-.rowflex{display:flex;gap:10px;margin-top:10px}.rowflex input{flex:1}
-.smallbtn{padding:11px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
-color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
+.aibox{background:var(--panel);border:1px solid var(--line);border-top:0;
+border-radius:0 0 var(--rad) var(--rad);padding:20px 22px}
+.chat{max-height:320px;overflow:auto;margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.msg{padding:11px 14px;border-radius:14px;max-width:86%;white-space:pre-wrap;font-size:.95rem;line-height:1.55}
+.msg.u{align-self:flex-end;background:linear-gradient(135deg,#1d4e78,#173a5e);color:#eaf3ff}
+.msg.a{align-self:flex-start;background:var(--panel2);border:1px solid var(--line2)}
+.rowflex{display:flex;gap:10px;margin-top:12px}.rowflex input{flex:1}
+@media(max-width:820px){.wrap{grid-template-columns:1fr}}
 </style></head><body>
 <header>
-  <h1><span class="tag">TEIBAN</span> screening</h1>
-  <small>proteins &times; SMILES &rarr; Slurm (dynamic multi-GPU) &rarr; CSV</small>
+  <div class="brand"><span class="logo">TEIBAN</span><span class="sub">Screening</span></div>
+  <span class="tagline">proteins &times; SMILES &nbsp;&rarr;&nbsp; Slurm dynamic multi GPU &nbsp;&rarr;&nbsp; results CSV</span>
   <span class="spacer"></span>
-  <span class="fontctl">text <button onclick="fz(-1)">A&minus;</button><button onclick="fz(1)">A+</button></span>
+  <span class="fontctl">Text size <button onclick="fz(-1)" title="smaller" style="font-size:.8rem">A</button><button onclick="fz(1)" title="larger" style="font-size:1.15rem">A</button></span>
 </header>
 <div class="wrap">
   <div class="card">
-    <h2>1 - pick input files</h2>
+    <h2><span class="step">1</span>Pick input files</h2>
     <div class="body">
       <div class="crumb" id="crumb">/</div>
       <div class="list" id="list"></div>
       <div class="picks">
-        <div>SMILES files (drugs): <span id="smiPicks"><i style="color:var(--muted)">none - click <b>+SMILES</b> on a file</i></span></div>
-        <div style="margin-top:8px">Protein file (FASTA/list): <span id="protPick"><i style="color:var(--muted)">none (or paste on the right)</i></span></div>
-        <div style="margin-top:8px">Output folder: <b id="outDir">-</b></div>
+        <div><span class="lab">SMILES files (drugs)</span><br><span id="smiPicks"><i>none yet. Click <b>+SMILES</b> on a file.</i></span></div>
+        <div style="margin-top:12px"><span class="lab">Protein file (FASTA or list)</span><br><span id="protPick"><i>none. You can also paste on the right.</i></span></div>
+        <div style="margin-top:12px"><span class="lab">Output folder</span><br><b id="outDir" style="color:var(--txt);font-weight:600">&#8230;</b></div>
       </div>
-      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
-        <div style="font-size:.95rem;color:var(--muted);margin-bottom:8px">Optional - clean the picked SMILES into a de-duplicated library first (de-salt, de-solvent, normalize; <b>charge/polarity preserved</b>):</div>
+      <div class="sub-block">
+        <div class="hint">Optional: clean the picked SMILES into a deduplicated library first (removes salts and solvents, normalizes; <b style="color:var(--txt)">charge and polarity preserved</b>).</div>
         <div class="g3">
           <div><label>Clean output</label><input id="preOut" value="clean_library.smi"></div>
           <div><label>Parallel tasks</label><input id="preTasks" type="number" min="1" value="8"></div>
-          <div><label>CPUs / task</label><input id="preCpus" type="number" min="1" value="8"></div>
+          <div><label>CPUs per task</label><input id="preCpus" type="number" min="1" value="8"></div>
         </div>
-        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted)"><input type="checkbox" id="preNeut" style="width:auto"> also neutralize charges (default off - keeps polarity)</label>
-        <button class="smallbtn" style="margin-top:10px;width:100%" id="preGo">Preprocess (clean library) &rarr; cluster</button>
+        <label style="display:flex;gap:9px;align-items:center;margin-top:12px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--muted)"><input type="checkbox" id="preNeut" style="width:auto"> also neutralize charges (off by default, keeps polarity)</label>
+        <button class="btn btn-ghost btn-wide" id="preGo">Preprocess (clean library) on the cluster</button>
         <div class="prog" id="prog2">
           <div class="bar"><i id="fill2"></i></div>
           <div class="pstat"><span id="pmsg2"></span><span id="ppct2"></span></div>
@@ -534,57 +563,57 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
     </div>
   </div>
   <div class="card">
-    <h2>2 - targets &amp; run</h2>
+    <h2><span class="step">2</span>Targets and run</h2>
     <div class="body">
-      <label>Protein target(s) - paste one sequence, or a multi-record FASTA (or pick a file on the left)</label>
+      <label>Protein target(s)</label>
       <textarea id="prot" placeholder=">CDK2&#10;MENFQK...&#10;>ABL1&#10;MGPSEND..."></textarea>
+      <div class="hint" style="margin-top:8px">Paste one sequence, or several as a FASTA (each &gt;record is one target). Or pick a FASTA file on the left.</div>
       <div class="g3">
         <div><label>GPUs (parallel)</label><input id="gpus" type="number" min="1" max="256" value="8"></div>
-        <div><label>GPU type (sets batch size)</label><select id="gputype">
+        <div><label>GPU type</label><select id="gputype">
           <option value="128">RTX 6000 Ada (48GB)</option>
           <option value="128">A100 (40GB)</option>
           <option value="64">V100 (16GB)</option>
           <option value="32">small GPU (12GB)</option>
           <option value="">Other / custom</option>
         </select></div>
-        <div><label>Batch size (auto)</label><input id="batch" type="number" min="1" value="128"></div>
+        <div><label>Batch size</label><input id="batch" type="number" min="1" value="128"></div>
       </div>
       <div class="g3">
-        <div><label>Partition <span id="partHint" style="color:var(--muted)"></span></label><select id="part"></select></div>
+        <div><label>Partition <span id="partHint" style="color:var(--faint);text-transform:none;letter-spacing:0;font-weight:400"></span></label><select id="part"></select></div>
         <div><label>Model</label><select id="model"><option>BiLSTM</option><option>CNN</option><option>both</option></select></div>
         <div><label>Output CSV name</label><input id="out" value="screen_pred.csv"></div>
       </div>
       <div class="g2">
-        <div><label>Protein id (only for a single pasted sequence)</label><input id="pid" value="target"></div>
-        <div style="align-self:end;color:var(--muted);font-size:.9rem;padding-bottom:11px">A label for your target; ignored if you paste a FASTA (uses its &gt;headers).</div>
+        <div><label>Protein id</label><input id="pid" value="target"></div>
+        <div style="align-self:end;color:var(--faint);font-size:.85rem;padding-bottom:12px">A label used only when you paste one plain sequence. Ignored for FASTA.</div>
       </div>
-      <button class="go" id="go" disabled>Submit screen to cluster</button>
+      <button class="btn btn-primary" id="go" disabled>Submit screen to the cluster</button>
       <div class="prog" id="prog">
         <div class="bar"><i id="fill"></i></div>
-        <div class="pstat"><span id="pmsg">submitting...</span><span id="ppct"></span></div>
+        <div class="pstat"><span id="pmsg">submitting&#8230;</span><span id="ppct"></span></div>
         <div class="note" id="pnote"></div>
       </div>
     </div>
   </div>
 </div>
-
 <details class="ai">
-  <summary>&#129302; AI assistant - setup &amp; ask (optional)</summary>
+  <summary>&#129302;&nbsp; AI assistant <span style="color:var(--faint);font-weight:500;font-size:.9rem">&nbsp;setup and ask (optional)</span></summary>
   <div class="aibox">
     <div class="g3">
-      <div><label>Base URL (OpenAI-compatible)</label><input id="aiUrl" placeholder="http://host:8000/v1"></div>
-      <div><label>Model</label><input id="aiModel" placeholder="(Detect, or type)"></div>
-      <div><label>API key (optional)</label><input id="aiKey" type="password" placeholder=""></div>
+      <div><label>Base URL (OpenAI compatible)</label><input id="aiUrl" placeholder="http://host:8000/v1"></div>
+      <div><label>Model</label><input id="aiModel" placeholder="Detect, or type"></div>
+      <div><label>API key (optional)</label><input id="aiKey" type="password"></div>
     </div>
     <div class="rowflex">
-      <button class="smallbtn" onclick="aiDetect()">Detect models</button>
-      <button class="smallbtn" onclick="aiSave()">Save to .env</button>
-      <span id="aiStatus" style="color:var(--muted);align-self:center"></span>
+      <button class="btn btn-ghost" onclick="aiDetect()">Detect models</button>
+      <button class="btn btn-ghost" onclick="aiSave()">Save to .env</button>
+      <span id="aiStatus" style="color:var(--muted);align-self:center;font-size:.9rem"></span>
     </div>
     <div class="chat" id="chat"></div>
     <div class="rowflex">
-      <input id="aiMsg" placeholder="Ask about preparing inputs, the fields, or anything..." onkeydown="if(event.key==='Enter')aiSend()">
-      <button class="smallbtn" onclick="aiSend()">Send</button>
+      <input id="aiMsg" placeholder="Ask about preparing inputs, the fields, or anything&#8230;" onkeydown="if(event.key==='Enter')aiSend()">
+      <button class="btn btn-ghost" onclick="aiSend()">Send</button>
     </div>
   </div>
 </details>
@@ -621,10 +650,10 @@ function drow(name,path,ic,isdir,isS,isP,size){
   return '<div class="row"><span class="ic">'+ic+'</span>'+nm+sz+acts+'</div>';
 }
 function drawPicks(){
-  $('#smiPicks').innerHTML = smi.length? smi.map((p,i)=>'<span class="f">&#129516; <b>'+esc(p.split('/').pop())+'</b> <span class="x" onclick="rmS('+i+')">&times;</span></span>').join('')
-    : '<i style="color:var(--muted)">none - click <b>+SMILES</b> on a file</i>';
-  $('#protPick').innerHTML = protFile? '<span class="f">&#129530; <b>'+esc(protFile.split('/').pop())+'</b> <span class="x" onclick="rmP()">&times;</span></span>'
-    : '<i style="color:var(--muted)">none (or paste on the right)</i>';
+  $('#smiPicks').innerHTML = smi.length? smi.map((p,i)=>'<span class="pill">&#129516; <b>'+esc(p.split('/').pop())+'</b> <span class="x" onclick="rmS('+i+')">&times;</span></span>').join('')
+    : '<i>none yet. Click <b>+SMILES</b> on a file.</i>';
+  $('#protPick').innerHTML = protFile? '<span class="pill">&#129530; <b>'+esc(protFile.split('/').pop())+'</b> <span class="x" onclick="rmP()">&times;</span></span>'
+    : '<i>none. You can also paste on the right.</i>';
 }
 function rmS(i){smi.splice(i,1);drawPicks();check();}
 function rmP(){protFile=null;drawPicks();check();}
@@ -633,7 +662,7 @@ function esc(s){return (s+'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function enc(s){return (s+'').replace(/"/g,'&quot;');}
 function check(){$('#go').disabled=!(smi.length>0 && (protFile || $('#prot').value.trim().length>=15));}
 $('#prot').addEventListener('input',check);
-$('#gputype').onchange=function(){if(this.value)$('#batch').value=this.value;};
+(function(){var g=$('#gputype');if(g)g.onchange=function(){if(this.value)$('#batch').value=this.value;};})();
 
 $('#go').onclick=async()=>{
   $('#go').disabled=true;$('#prog').style.display='block';$('#fill').style.width='0';
@@ -682,7 +711,7 @@ async function poll2(){
   $('#pmsg2').innerHTML='state: '+(d.state||'...')+'  ('+done+'/'+tot+' chunks)';
   if(d.merged){clearInterval(timer2);
     $('#pmsg2').innerHTML='<span class="ok">clean library ready &middot; '+(d.rows!=null?d.rows+' unique molecules':'')+'</span>';
-    $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> - now pick it as a SMILES file to screen';
+    $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> then pick it as a SMILES file to screen';
     $('#preGo').disabled=false;}
 }
 async function aiDetect(){
