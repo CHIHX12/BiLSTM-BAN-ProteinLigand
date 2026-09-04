@@ -540,13 +540,23 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
       <textarea id="prot" placeholder=">CDK2&#10;MENFQK...&#10;>ABL1&#10;MGPSEND..."></textarea>
       <div class="g3">
         <div><label>GPUs (parallel)</label><input id="gpus" type="number" min="1" max="256" value="8"></div>
-        <div><label>Partition <span id="partHint" style="color:var(--muted)"></span></label><select id="part"></select></div>
-        <div><label>Model</label><select id="model"><option>BiLSTM</option><option>CNN</option><option>both</option></select></div>
+        <div><label>GPU type (sets batch size)</label><select id="gputype">
+          <option value="128">RTX 6000 Ada (48GB)</option>
+          <option value="128">A100 (40GB)</option>
+          <option value="64">V100 (16GB)</option>
+          <option value="32">small GPU (12GB)</option>
+          <option value="">Other / custom</option>
+        </select></div>
+        <div><label>Batch size (auto)</label><input id="batch" type="number" min="1" value="128"></div>
       </div>
       <div class="g3">
+        <div><label>Partition <span id="partHint" style="color:var(--muted)"></span></label><select id="part"></select></div>
+        <div><label>Model</label><select id="model"><option>BiLSTM</option><option>CNN</option><option>both</option></select></div>
         <div><label>Output CSV name</label><input id="out" value="screen_pred.csv"></div>
-        <div><label>Batch size <span style="color:var(--muted)" title="lower to ~64 for 16GB GPUs">(64 for 16GB)</span></label><input id="batch" type="number" min="1" value="128"></div>
-        <div><label>Protein id (single seq)</label><input id="pid" value="target"></div>
+      </div>
+      <div class="g2">
+        <div><label>Protein id (only for a single pasted sequence)</label><input id="pid" value="target"></div>
+        <div style="align-self:end;color:var(--muted);font-size:.9rem;padding-bottom:11px">A label for your target; ignored if you paste a FASTA (uses its &gt;headers).</div>
       </div>
       <button class="go" id="go" disabled>Submit screen to cluster</button>
       <div class="prog" id="prog">
@@ -623,6 +633,7 @@ function esc(s){return (s+'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function enc(s){return (s+'').replace(/"/g,'&quot;');}
 function check(){$('#go').disabled=!(smi.length>0 && (protFile || $('#prot').value.trim().length>=15));}
 $('#prot').addEventListener('input',check);
+$('#gputype').onchange=function(){if(this.value)$('#batch').value=this.value;};
 
 $('#go').onclick=async()=>{
   $('#go').disabled=true;$('#prog').style.display='block';$('#fill').style.width='0';
