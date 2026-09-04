@@ -37,6 +37,7 @@ From: nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
     predict.py             /opt/teiban/
     predict_simple.py      /opt/teiban/
     predict_batch.py       /opt/teiban/
+    teiban_web.py          /opt/teiban/
     analyze_promiscuity.py /opt/teiban/
     trainer.py             /opt/teiban/
     utils.py               /opt/teiban/

@@ -720,6 +720,38 @@ def build_pairs_csv(folder, ligand_file, receptor_file, output):
     return out, f"{len(good)} clean pair(s) written"
 
 
+def build_screen_csv(protein, protein_id, drug_file, output):
+    """Screening: pair ONE protein sequence with every SMILES in drug_file, clean
+    them (de-salt, drop invalid, de-dup), and write a pairs CSV ready for the
+    cluster. Used by the web UI (1 protein x a big SMILES file). Returns (path, msg)."""
+    pseq, pnote = clean_protein(protein or "")
+    if pseq is None:
+        return None, f"bad protein sequence ({pnote})"
+    if not drug_file or not os.path.isfile(drug_file):
+        return None, f"drug file not found: {drug_file}"
+    drugs = read_smiles_list(drug_file)          # [(id, smiles), ...]  handles ID<tab>SMILES
+    if not drugs:
+        return None, "no SMILES found in the drug file"
+    pid = (protein_id or "target").strip() or "target"
+    many = len(drugs) > 1
+    pairs = [{"name": f"{did}~{pid}" if many else did,
+              "ligand_id": did, "receptor_id": pid, "SMILES": ds, "Protein": pseq}
+             for did, ds in drugs]
+    good = validate_pairs(pairs)
+    if not good:
+        return None, "no valid pairs remained after cleaning the SMILES"
+    out = os.path.abspath(os.path.expanduser((output or "").strip() or "screen_pairs.csv"))
+    if not out.lower().endswith(".csv"):
+        out += ".csv"
+    with open(out, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["name", "ligand_id", "receptor_id", "SMILES", "Protein"])
+        for p in good:
+            w.writerow([p["name"], p.get("ligand_id", ""), p.get("receptor_id", ""),
+                        p["SMILES"], p["Protein"]])
+    return out, f"{len(good)} pair(s) written"
+
+
 def ai_mode():
     """Natural-language front-end. Returns a pair list, or BACK."""
     load_env()
@@ -1487,12 +1519,16 @@ def interactive_menu():
                  ("Scan a FOLDER of drug / protein files (choose which to use)", "folder"),
                  ("Ask the AI assistant (natural language)", "ai"),
                  ("Submit a big job to the GPU cluster (Slurm)", "cluster"),
+                 ("Web interface (browser UI for cluster screening)", "web"),
                  ("Help / about  -  what's inside + how to use", "help")],
                 default=1, allow_back=False,
             )
             if input_mode == "help":
                 print_about()
                 continue          # show the info, then stay on this menu
+            if input_mode == "web":
+                print_web_help()
+                continue
             step = "gather"
         elif step == "gather":
             if input_mode == "cluster":
@@ -1661,6 +1697,29 @@ def _print_table(headers, rows):
 
 
 # ---------------------------------------------------------------------------
+def print_web_help():
+    """Menu option: how to launch the browser UI (which must run on the host)."""
+    line = "=" * 66
+    sif = (os.environ.get("SINGULARITY_CONTAINER") or os.environ.get("APPTAINER_CONTAINER")
+           or "teiban.sif")
+    print("\n  " + line)
+    print("   TEIBAN web interface  (browser UI for cluster screening)")
+    print("  " + line)
+    print("\n  The web UI submits Slurm jobs, so it runs on the HOST / login node,")
+    print("  NOT inside this container. Start it there with the system python3")
+    print("  (it needs only the Python standard library):\n")
+    print(f"    singularity exec {sif} cat /opt/teiban/teiban_web.py > teiban_web.py")
+    print("    python3 teiban_web.py\n")
+    print("  It prints a URL (default http://127.0.0.1:8700). Open it in a browser")
+    print("  on the login node, or tunnel from your laptop:")
+    print("    ssh -L 8700:localhost:8700 <this-host>\n")
+    print("  In the page: browse to a folder, pick a SMILES file, paste ONE protein")
+    print("  sequence, choose how many GPUs, and submit -- a progress bar tracks the")
+    print("  Slurm array until the results CSV is ready.")
+    print("    options:  python3 teiban_web.py --port 8700 --root $HOME --sif <sif>")
+    print("  " + line)
+
+
 def print_about():
     """Menu option [5]: what is bundled in the image + the key usage notes."""
     line = "=" * 66
@@ -1673,6 +1732,7 @@ def print_about():
     predict.py          command line: single pair, CSV batch, or screening
     predict_batch.py    N x M batch (every drug against every protein)
     submit_teiban.sh    submit a big job to the Slurm cluster (multi-GPU)
+    teiban_web.py       browser UI for cluster screening (run on the host)
     configs/ + result/  model settings + trained BiLSTM & CNN checkpoints
 
   Good to know:
@@ -1742,6 +1802,16 @@ def parse_args():
     p.add_argument("--validate", action="store_true",
                    help="only CHECK the inputs (file/folder of SMILES & sequences) and "
                         "report pass/fail; run no prediction (fast, no GPU needed)")
+    # --- screening CSV builder (used by the web UI): 1 protein x many SMILES ---
+    p.add_argument("--screen-csv", dest="screen_csv", action="store_true",
+                   help="build a screening pairs CSV: 1 protein x every SMILES in "
+                        "--drug-file, cleaned & validated (no GPU needed)")
+    p.add_argument("--drug-file", dest="drug_file",
+                   help="a SMILES list file (one per line, or ID<tab>SMILES)")
+    p.add_argument("--protein-file", dest="protein_file",
+                   help="a file holding ONE protein sequence (instead of --protein)")
+    p.add_argument("--protein-id", dest="protein_id", default="target",
+                   help="id/label for the protein in --screen-csv (default: target)")
     return p.parse_args()
 
 
@@ -1759,6 +1829,22 @@ def main():
         else:
             print("  --validate needs --input FILE_OR_FOLDER  (or --drug + --protein)")
             sys.exit(1)
+        sys.exit(0)
+
+    # Screening CSV builder (used by the web UI): 1 protein x a big SMILES file.
+    if args.screen_csv:
+        prot = args.protein
+        if not prot and args.protein_file and os.path.isfile(args.protein_file):
+            with open(args.protein_file, encoding="utf-8", errors="replace") as f:
+                prot = f.read()
+        if not prot or not args.drug_file or not args.output:
+            print("ERROR: --screen-csv needs --protein/--protein-file, --drug-file, --output")
+            sys.exit(1)
+        path, msg = build_screen_csv(prot, args.protein_id, args.drug_file, args.output)
+        if path is None:
+            print(f"ERROR: {msg}")
+            sys.exit(1)
+        print(f"OK: {msg} -> {path}")
         sys.exit(0)
 
     interactive = not (args.input or args.drug or args.protein)
