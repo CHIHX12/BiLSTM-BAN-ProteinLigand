@@ -85,8 +85,10 @@ cat > "$ARR" <<EOF
 #SBATCH --time=$TIME
 #SBATCH --array=0-$((NPARTS-1))$MAXTAG
 #SBATCH --output=$CDIR/task_%a.log
+#SBATCH --requeue
 set -e
 P=\$(printf "%04d" \$SLURM_ARRAY_TASK_ID)
+if [ -s "$CDIR/clean_\$P.smi" ]; then echo "chunk \$P already done, skipping"; exit 0; fi
 singularity exec "$SIF" python3 /opt/teiban/predict_simple.py --preprocess \\
     --drug-file "$CDIR/part_\$P.smi" --output "$CDIR/clean_\$P.smi" \\
     --workers \${SLURM_CPUS_PER_TASK:-$CPUS} $NEUT
@@ -111,8 +113,9 @@ if [ "$DRYRUN" = 1 ]; then
   echo "--- array sbatch ---"; cat "$ARR"; echo "--- merge sbatch ---"; cat "$MERGE"
   rm -rf "$CDIR"; exit 0
 fi
+echo "$TOTAL" > "$CDIR/.total"   # total SMILES, for the live progress display
 JID=$(sbatch --parsable "$ARR")
 echo "[prep] array job: $JID  ($NPARTS tasks$( [ -n "$MAXTAG" ] && echo ", up to $MAXPAR at once" ), $CPUS cpus each)"
-sbatch --dependency=afterok:"$JID" "$MERGE"
+sbatch --dependency=afterany:"$JID" "$MERGE"
 echo "[prep] merge+dedup queued (runs after preprocessing) -> $OUTPUT"
 echo "[prep] watch:  squeue -u \$(whoami)   |   tail -f $CDIR/merge.log"

@@ -87,7 +87,7 @@ if [ "$CHUNKS" = "auto" ]; then
   MP="${MAXPAR:-1}"; case "$MP" in ''|*[!0-9]*) MP=1;; esac; [ "$MP" -lt 1 ] && MP=1
   BYSIZE=$(( (ROWS + PIECE - 1) / PIECE )); CHUNKS=$(( MP * 2 ))
   [ "$BYSIZE" -gt "$CHUNKS" ] && CHUNKS=$BYSIZE
-  [ "$CHUNKS" -gt 256 ] && CHUNKS=256
+  [ "$CHUNKS" -gt 1000 ] && CHUNKS=1000
   [ "$CHUNKS" -gt "$ROWS" ] && CHUNKS="$ROWS"
   [ "$CHUNKS" -lt 1 ] && CHUNKS=1
   echo "[submit] auto chunks: $ROWS rows -> $CHUNKS pieces (maxpar ${MAXPAR:-none})"
@@ -122,16 +122,24 @@ fi
 # ---- chunked array (multi-GPU via data parallelism) ----------------------
 CDIR="${CHUNKSDIR:-$(dirname "$(readlink -f "$OUTPUT")")/teiban_chunks_$$}"
 mkdir -p "$CDIR"
-HEADER="$(head -1 "$INPUT")"
-# round-robin rows into N chunk files, each with the header (order does not
-# matter -- results are merged afterwards).
-tail -n +2 "$INPUT" | awk -v n="$CHUNKS" -v dir="$CDIR" -v hdr="$HEADER" '
-  { f = sprintf("%s/part_%03d.csv", dir, (NR-1) % n);
-    if (!(f in seen)) { print hdr > f; seen[f] = 1 }
-    print >> f }'
-NPARTS=$(ls "$CDIR"/part_*.csv 2>/dev/null | wc -l)
-[ "$NPARTS" -ge 1 ] || { echo "ERROR: split produced no chunks (empty input?)"; exit 1; }
-echo "[submit] split into $NPARTS chunks -> $CDIR"
+echo "$ROWS" > "$CDIR/.total"   # total pairs, for the live progress display
+# RESUME: if this chunk dir already holds chunk files, reuse them instead of
+# re-splitting (re-running the same command continues an interrupted run).
+if ls "$CDIR"/part_*.csv >/dev/null 2>&1; then
+  NPARTS=$(ls "$CDIR"/part_*.csv | wc -l)
+  echo "[submit] resuming: reusing $NPARTS existing chunk(s) in $CDIR"
+else
+  HEADER="$(head -1 "$INPUT")"
+  # round-robin rows into N chunk files, each with the header (order does not
+  # matter -- results are merged afterwards).
+  tail -n +2 "$INPUT" | awk -v n="$CHUNKS" -v dir="$CDIR" -v hdr="$HEADER" '
+    { f = sprintf("%s/part_%03d.csv", dir, (NR-1) % n);
+      if (!(f in seen)) { print hdr > f; seen[f] = 1 }
+      print >> f }'
+  NPARTS=$(ls "$CDIR"/part_*.csv 2>/dev/null | wc -l)
+  [ "$NPARTS" -ge 1 ] || { echo "ERROR: split produced no chunks (empty input?)"; exit 1; }
+  echo "[submit] split into $NPARTS chunks -> $CDIR"
+fi
 
 # Dynamic load balancing: cap concurrent array tasks at --maxpar (the GPUs to use
 # at once). With NPARTS >> MAXPAR, Slurm assigns the next chunk to whichever GPU
@@ -149,8 +157,12 @@ cat > "$ARRAY_SBATCH" <<EOF
 #SBATCH --time=$TIME
 #SBATCH --array=0-$((NPARTS-1))$MAXTAG
 #SBATCH --output=$CDIR/task_%a.log
+#SBATCH --requeue
 set -e
 P=\$(printf "%03d" \$SLURM_ARRAY_TASK_ID)
+# resume: a chunk already finished (its results exist) is skipped, so a re-run or
+# a Slurm requeue after a node failure never redoes completed work.
+if [ -s "$CDIR/pred_\$P.csv" ]; then echo "chunk \$P already done, skipping"; exit 0; fi
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || echo "[warn] nvidia-smi unavailable"
 singularity exec --nv "$SIF" python3 /opt/teiban/predict.py \\
     --input "$CDIR/part_\$P.csv" --output "$CDIR/pred_\$P.csv" \\
@@ -184,5 +196,5 @@ if [ -n "$MAXTAG" ]; then
 else
   echo "[submit] array job: $JID  ($NPARTS tasks, 1 GPU each)"
 fi
-sbatch --dependency=afterok:"$JID" "$MERGE_SBATCH"
-echo "[submit] merge job queued (runs after the array finishes) -> $OUTPUT"
+sbatch --dependency=afterany:"$JID" "$MERGE_SBATCH"
+echo "[submit] merge job queued (runs after the array, merges whatever finished) -> $OUTPUT"

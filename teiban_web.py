@@ -273,6 +273,20 @@ def progress(qs):
         res["done"] = res["total"] or res["done"]
         n = count_lines(out)
         res["rows"] = max(0, n - 1) if out.lower().endswith(".csv") else n
+    # molecule-level estimate for a live "M of N molecules" + ETA display.
+    # Chunks are ~equal, so molecules done ~= (chunks done / chunks total) x total.
+    if cd:
+        tf = os.path.join(cd, ".total")
+        if os.path.isfile(tf):
+            try:
+                res["mol_total"] = int((open(tf).read().strip() or "0"))
+                if res["total"]:
+                    res["mol_done"] = int(round(res["mol_total"] * min(res["done"], res["total"]) / res["total"]))
+                if res["merged"]:
+                    res["mol_done"] = res["mol_total"]
+            except (ValueError, OSError):
+                pass
+
     ctrl_states = []
     if shutil.which("squeue") and job:
         r = subprocess.run(["squeue", "-j", job, "-h", "-o", "%T"], capture_output=True, text=True)
@@ -659,6 +673,12 @@ function rmS(i){smi.splice(i,1);drawPicks();check();}
 function rmP(){protFile=null;drawPicks();check();}
 function fmt(n){return n<1024?n+' B':n<1048576?(n/1024).toFixed(0)+' KB':n<1073741824?(n/1048576).toFixed(1)+' MB':(n/1073741824).toFixed(2)+' GB';}
 function esc(s){return (s+'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fnum(n){return (n||0).toLocaleString();}
+function eta(t0,frac){if(!t0||frac<=0.02||frac>=1)return '';var r=((Date.now()-t0)/1000)*(1-frac)/frac;
+  return r<60?Math.round(r)+'s':r<3600?Math.round(r/60)+'m':(r/3600).toFixed(1)+'h';}
+function progLine(d,tot,done,unit,t0){let s='state: '+(d.state||'…')+'  ('+done+'/'+tot+' '+unit+')';
+  if(d.mol_total){s+='  &middot;  '+fnum(d.mol_done||0)+' / '+fnum(d.mol_total)+' molecules';}
+  const e=eta(t0,done/tot); if(e)s+='  &middot;  ~'+e+' left'; return s;}
 function enc(s){return (s+'').replace(/"/g,'&quot;');}
 function check(){$('#go').disabled=!(smi.length>0 && (protFile || $('#prot').value.trim().length>=15));}
 $('#prot').addEventListener('input',check);
@@ -672,7 +692,7 @@ $('#go').onclick=async()=>{
     model:$('#model').value,batch:$('#batch').value};
   const d=await(await fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!d.ok){$('#pmsg').textContent='failed';$('#pnote').textContent=d.error||'error';$('#go').disabled=false;return;}
-  run=d;
+  run=d;run.t0=Date.now();
   $('#pmsg').innerHTML='controller job '+(d.job||'?')+' submitted (all work runs on the cluster)';
   poll();timer=setInterval(poll,3000);
 };
@@ -683,7 +703,7 @@ async function poll(){
   if(!d.merged && (d.preparing || !(d.total>0))){$('#pmsg').textContent=(d.state||'preparing on cluster')+' ...';$('#ppct').textContent='';$('#fill').style.width='6%';return;}
   const tot=d.total||run.total||1,done=Math.min(d.done||0,tot),pct=Math.round(100*done/tot);
   $('#fill').style.width=(d.merged?100:pct)+'%';$('#ppct').textContent=(d.merged?100:pct)+'%';
-  $('#pmsg').innerHTML='state: '+(d.state||'...')+'  ('+done+'/'+tot+' pieces)';
+  $('#pmsg').innerHTML=progLine(d,tot,done,'pieces',run.t0);
   if(d.merged){clearInterval(timer);
     $('#pmsg').innerHTML='<span class="ok">done &middot; '+(d.rows!=null?d.rows+' predictions':'')+'</span>';
     $('#pnote').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run.out)+'">'+esc(run.out.split('/').pop())+'</a>';
@@ -699,7 +719,7 @@ $('#preGo').onclick=async()=>{
     cpus:$('#preCpus').value,neutralize:$('#preNeut').checked};
   const d=await(await fetch('/api/preprocess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!d.ok){$('#pmsg2').textContent='failed';$('#pnote2').textContent=d.error||'error';$('#preGo').disabled=false;return;}
-  run2=d;$('#pmsg2').innerHTML='controller job '+(d.job||'?')+' submitted (runs on the cluster)';poll2();timer2=setInterval(poll2,3000);
+  run2=d;run2.t0=Date.now();$('#pmsg2').innerHTML='controller job '+(d.job||'?')+' submitted (runs on the cluster)';poll2();timer2=setInterval(poll2,3000);
 };
 async function poll2(){
   if(!run2)return;
@@ -708,7 +728,7 @@ async function poll2(){
   if(!d.merged && (d.preparing || !(d.total>0))){$('#pmsg2').textContent=(d.state||'preparing on cluster')+' ...';$('#ppct2').textContent='';$('#fill2').style.width='6%';return;}
   const tot=d.total||run2.total||1,done=Math.min(d.done||0,tot),pct=Math.round(100*done/tot);
   $('#fill2').style.width=(d.merged?100:pct)+'%';$('#ppct2').textContent=(d.merged?100:pct)+'%';
-  $('#pmsg2').innerHTML='state: '+(d.state||'...')+'  ('+done+'/'+tot+' chunks)';
+  $('#pmsg2').innerHTML=progLine(d,tot,done,'chunks',run2.t0);
   if(d.merged){clearInterval(timer2);
     $('#pmsg2').innerHTML='<span class="ok">clean library ready &middot; '+(d.rows!=null?d.rows+' unique molecules':'')+'</span>';
     $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> then pick it as a SMILES file to screen';
