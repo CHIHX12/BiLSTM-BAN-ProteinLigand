@@ -720,6 +720,124 @@ def build_pairs_csv(folder, ligand_file, receptor_file, output):
     return out, f"{len(good)} clean pair(s) written"
 
 
+def _usable_cpus():
+    """How many CPUs we may actually use -- respects Slurm and cgroup limits."""
+    try:
+        n = int(os.environ.get("SLURM_CPUS_PER_TASK") or 0)
+        if n > 0:
+            return n
+    except ValueError:
+        pass
+    try:
+        return max(1, len(os.sched_getaffinity(0)))
+    except Exception:
+        return os.cpu_count() or 4
+
+
+# per-process cache of RDKit standardizer objects (building them is not free)
+_STD = {}
+
+
+def standardize_full(s, neutralize=False):
+    """FULL library standardization (heavier than the inference-time cleaner):
+      parse+sanitize -> Normalizer (canonical functional groups) -> keep largest
+      fragment (de-salt / de-solvent) -> Uncharger (neutralize acids/bases to the
+      neutral form) -> canonical SMILES.
+    Returns (smiles|None, note). Used by --preprocess to build a clean library."""
+    s = (s or "").strip().strip('"').strip("'").strip()
+    if not s:
+        return None, "empty"
+    try:
+        from rdkit import Chem, RDLogger
+        from rdkit.Chem.MolStandardize import rdMolStandardize
+        RDLogger.DisableLog("rdApp.*")
+    except Exception:
+        return (s, None)
+    m = Chem.MolFromSmiles(s)
+    if m is None or m.GetNumAtoms() == 0:
+        return None, "cannot parse SMILES"
+    if not _STD:
+        _STD["norm"] = rdMolStandardize.Normalizer()
+        _STD["lfc"] = rdMolStandardize.LargestFragmentChooser()
+        _STD["unch"] = rdMolStandardize.Uncharger()
+    try:
+        m = _STD["norm"].normalize(m)
+        m = _STD["lfc"].choose(m)
+        if neutralize:
+            m = _STD["unch"].uncharge(m)
+    except Exception:
+        return None, "standardization failed"
+    if m is None or m.GetNumAtoms() == 0:
+        return None, "empty after cleaning"
+    if not any(a.GetSymbol() == "C" for a in m.GetAtoms()):
+        return None, "no carbon atom"
+    return Chem.MolToSmiles(m), None
+
+
+def _clean_one_full(raw, neutralize=False):
+    try:
+        return raw, standardize_full(raw, neutralize)[0]
+    except Exception:
+        return raw, None
+
+
+def preprocess_smiles_files(drug_files, output, workers=0, neutralize=False, progress_every=0):
+    """One-click library prep. Read SMILES from one or many files, FULL-standardize
+    (de-salt, de-solvent, neutralize, normalize) every DISTINCT structure in parallel
+    (auto CPU count), drop invalids, de-duplicate on the canonical SMILES, and write
+    a clean 'id<TAB>SMILES' file plus a .report.txt. Returns (path, report)."""
+    import functools
+    if isinstance(drug_files, str):
+        drug_files = [d for d in re.split(r"[,\n]", drug_files) if d.strip()]
+    drugs = []
+    for df in (drug_files or []):
+        df = df.strip()
+        if df and os.path.isfile(df):
+            drugs.extend(read_smiles_list(df))
+    if not drugs:
+        return None, {"error": "no SMILES found in the input file(s)"}
+    n_in = len(drugs)
+    uniq = list({ds for _, ds in drugs})
+    workers = workers if workers and workers > 0 else _usable_cpus()
+
+    clean_map = {}
+    if workers > 1 and len(uniq) > 2000:
+        try:
+            import multiprocessing as mp
+            fn = functools.partial(_clean_one_full, neutralize=neutralize)
+            with mp.Pool(workers) as pool:
+                for raw, c in pool.imap_unordered(fn, uniq, chunksize=512):
+                    clean_map[raw] = c
+        except Exception:
+            clean_map = {}
+    if not clean_map:
+        for raw in uniq:
+            clean_map[raw] = standardize_full(raw, neutralize)[0]
+
+    out = os.path.abspath(os.path.expanduser(output))
+    seen, n_out, n_bad = set(), 0, 0
+    with open(out, "w", encoding="utf-8") as f:
+        for did, ds in drugs:
+            c = clean_map.get(ds)
+            if not c:
+                n_bad += 1
+                continue
+            if c in seen:
+                continue
+            seen.add(c)
+            f.write(f"{did}\t{c}\n")
+            n_out += 1
+    rep = {"input": n_in, "unique_raw": len(uniq), "clean": n_out,
+           "invalid": n_bad, "duplicates_removed": n_in - n_bad - n_out,
+           "neutralized": neutralize, "workers": workers, "output": out}
+    with open(out + ".report.txt", "w", encoding="utf-8") as f:
+        f.write("TEIBAN SMILES preprocessing report\n" + "=" * 34 + "\n")
+        for k in ("input", "unique_raw", "clean", "invalid", "duplicates_removed",
+                  "neutralized", "workers", "output"):
+            f.write(f"  {k:20s}: {rep[k]}\n")
+    return out, rep
+
+
 def _clean_one_smiles(raw):
     """Module-level so it can be used with multiprocessing. -> (raw, canonical|None)."""
     try:
@@ -1785,6 +1903,7 @@ def print_about():
     predict.py          command line: single pair, CSV batch, or screening
     predict_batch.py    N x M batch (every drug against every protein)
     submit_teiban.sh    submit a big job to the Slurm cluster (multi-GPU)
+    preprocess_teiban.sh clean a HUGE SMILES library on the cluster (de-salt/dedup)
     teiban_web.py       browser UI for cluster screening (run on the host)
     configs/ + result/  model settings + trained BiLSTM & CNN checkpoints
 
@@ -1869,7 +1988,15 @@ def parse_args():
     p.add_argument("--protein-id", dest="protein_id", default="target",
                    help="id/label for a single --protein sequence (default: target)")
     p.add_argument("--workers", dest="workers", type=int, default=0,
-                   help="parallel processes for cleaning SMILES (0 = auto, up to 16)")
+                   help="parallel processes for cleaning SMILES (0 = auto: all usable CPUs)")
+    # --- one-click library preprocessing (de-salt / normalize / de-dup) -------
+    p.add_argument("--preprocess", dest="preprocess", action="store_true",
+                   help="one-click clean a SMILES library: de-salt, de-solvent, "
+                        "normalize and de-duplicate. Charge/POLARITY IS PRESERVED. "
+                        "Reads --drug-file(s), writes a clean id<TAB>SMILES to --output")
+    p.add_argument("--neutralize", dest="neutralize", action="store_true",
+                   help="(optional) ALSO neutralize charges to the neutral form; "
+                        "OFF by default so the SMILES' own polarity is kept")
     return p.parse_args()
 
 
@@ -1887,6 +2014,23 @@ def main():
         else:
             print("  --validate needs --input FILE_OR_FOLDER  (or --drug + --protein)")
             sys.exit(1)
+        sys.exit(0)
+
+    # One-click SMILES library preprocessing (de-salt / normalize / de-dup).
+    if args.preprocess:
+        if not args.drug_file or not args.output:
+            print("ERROR: --preprocess needs --drug-file (repeatable) and --output")
+            sys.exit(1)
+        path, rep = preprocess_smiles_files(args.drug_file, args.output,
+                                            workers=args.workers, neutralize=args.neutralize)
+        if path is None:
+            print(f"ERROR: {rep.get('error')}")
+            sys.exit(1)
+        print(f"OK: {rep['input']} in -> {rep['clean']} clean unique  "
+              f"({rep['invalid']} invalid, {rep['duplicates_removed']} dup removed, "
+              f"charge {'neutralized' if rep['neutralized'] else 'PRESERVED'}, "
+              f"{rep['workers']} workers)")
+        print(f"    -> {path}   (+ {os.path.basename(path)}.report.txt)")
         sys.exit(0)
 
     # Screening CSV builder (used by the web UI): N protein(s) x a big SMILES file.

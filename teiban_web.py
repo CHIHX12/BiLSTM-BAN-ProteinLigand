@@ -44,7 +44,7 @@ from urllib.parse import urlparse, parse_qs
 CFG = {"root": os.path.expanduser("~"), "sif": None, "partition": "all", "piece": 50000}
 SMILES_EXTS = (".smi", ".txt", ".csv", ".tsv", ".ism", ".smiles", ".seq")
 PROT_EXTS = (".fasta", ".fa", ".faa", ".seq", ".txt")
-MAX_PIECES = 1000  # keep the Slurm array within a sane size
+MAX_PIECES = 256  # keep the header-aware awk split within the open-file limit
 
 AI_WEB_SYSTEM = (
     "You are the TEIBAN assistant embedded in the screening web app. TEIBAN is a "
@@ -203,6 +203,52 @@ def submit(data):
             "log": out.strip()[-600:]}
 
 
+def submit_preprocess(data):
+    """One-click library cleaning on the cluster: de-salt/de-solvent/normalize/
+    de-dup selected SMILES file(s) (charge preserved unless neutralize=true),
+    distributed over CPU array tasks. Returns the job + prep dir for progress."""
+    sif = find_sif()
+    if not sif:
+        return {"ok": False, "error": "teiban.sif not found"}
+    if not shutil.which("sbatch"):
+        return {"ok": False, "error": "sbatch not found -- run me on the Slurm login node"}
+    smiles_paths = data.get("smiles_paths") or ([data["smiles_path"]] if data.get("smiles_path") else [])
+    smiles_paths = [s for s in (safe_path(p) for p in smiles_paths) if s and os.path.isfile(s)]
+    if not smiles_paths:
+        return {"ok": False, "error": "pick at least one SMILES file to clean"}
+    workdir = safe_path(data.get("out_dir")) or os.path.realpath(CFG["root"])
+    if not os.path.isdir(workdir):
+        return {"ok": False, "error": "the output folder is not valid"}
+    out_name = (data.get("out_name") or "clean_library.smi").strip() or "clean_library.smi"
+    if not out_name.lower().endswith((".smi", ".txt")):
+        out_name += ".smi"
+    out = os.path.join(workdir, out_name)
+    tasks = str(data.get("tasks") or "8")
+    tasks = int(tasks) if tasks.isdigit() and int(tasks) >= 1 else 8
+    cpus = str(data.get("cpus") or "8")
+    cpus = int(cpus) if cpus.isdigit() and int(cpus) >= 1 else 8
+
+    pre_sh = os.path.join(workdir, "preprocess_teiban.sh")
+    subprocess.run(["bash", "-c", f'singularity exec "{sif}" cat /opt/teiban/preprocess_teiban.sh > "{pre_sh}"'])
+    cmd = ["bash", pre_sh]
+    for s in smiles_paths:
+        cmd += ["--input", s]
+    cmd += ["--output", out, "--chunks", str(tasks * 4), "--maxpar", str(tasks),
+            "--cpus", str(cpus), "--sif", sif]
+    if data.get("neutralize"):
+        cmd += ["--neutralize"]
+    run = subprocess.run(cmd, capture_output=True, text=True, cwd=workdir)
+    o = run.stdout + run.stderr
+    mjob = re.search(r"array job:\s*(\d+)", o)
+    mdir = re.search(r"-> (\S*teiban_prep_\d+)", o)
+    ntot = re.search(r"split into (\d+) chunks", o)
+    if not mjob or not mdir:
+        return {"ok": False, "error": "preprocess submit failed: " + o.strip()[-400:]}
+    return {"ok": True, "job": mjob.group(1), "chunks_dir": mdir.group(1),
+            "total": int(ntot.group(1)) if ntot else tasks * 4, "out": out,
+            "kind": "preprocess", "log": o.strip()[-500:]}
+
+
 def progress(qs):
     cd = (qs.get("dir", [""])[0] or "").strip()
     out = (qs.get("out", [""])[0] or "").strip()
@@ -210,12 +256,15 @@ def progress(qs):
     total = int(qs.get("total", ["0"])[0] or 0)
     res = {"total": total, "done": 0, "running": 0, "state": "", "merged": False, "rows": None}
     if cd and os.path.isdir(cd):
-        res["total"] = len(glob.glob(os.path.join(cd, "part_*.csv"))) or total
-        res["done"] = len(glob.glob(os.path.join(cd, "pred_*.csv")))
+        parts = glob.glob(os.path.join(cd, "part_*.csv")) + glob.glob(os.path.join(cd, "part_*.smi"))
+        done = glob.glob(os.path.join(cd, "pred_*.csv")) + glob.glob(os.path.join(cd, "clean_*.smi"))
+        res["total"] = len(parts) or total
+        res["done"] = len(done)
     if out and os.path.isfile(out):
         res["merged"] = True
         res["done"] = res["total"] or res["done"]
-        res["rows"] = max(0, count_lines(out) - 1)
+        n = count_lines(out)
+        res["rows"] = max(0, n - 1) if out.lower().endswith(".csv") else n
     if shutil.which("squeue") and job:
         r = subprocess.run(["squeue", "-j", job, "-h", "-o", "%T"], capture_output=True, text=True)
         states = [s for s in r.stdout.split() if s]
@@ -356,8 +405,8 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length) or b"{}")
         except Exception:
             return self._send(400, {"ok": False, "error": "bad JSON"})
-        routes = {"/api/submit": submit, "/api/ai/detect": ai_detect,
-                  "/api/ai/save": ai_save, "/api/ai/chat": ai_chat}
+        routes = {"/api/submit": submit, "/api/preprocess": submit_preprocess,
+                  "/api/ai/detect": ai_detect, "/api/ai/save": ai_save, "/api/ai/chat": ai_chat}
         fn = routes.get(u.path)
         if not fn:
             return self._send(404, {"ok": False, "error": "no such endpoint"})
@@ -453,6 +502,21 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
         <div>SMILES files (drugs): <span id="smiPicks"><i style="color:var(--muted)">none &mdash; click <b>+SMILES</b> on a file</i></span></div>
         <div style="margin-top:8px">Protein file (FASTA/list): <span id="protPick"><i style="color:var(--muted)">none (or paste on the right)</i></span></div>
         <div style="margin-top:8px">Output folder: <b id="outDir">&mdash;</b></div>
+      </div>
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <div style="font-size:.95rem;color:var(--muted);margin-bottom:8px">Optional &mdash; clean the picked SMILES into a de-duplicated library first (de-salt, de-solvent, normalize; <b>charge/polarity preserved</b>):</div>
+        <div class="g3">
+          <div><label>Clean output</label><input id="preOut" value="clean_library.smi"></div>
+          <div><label>Parallel tasks</label><input id="preTasks" type="number" min="1" value="8"></div>
+          <div><label>CPUs / task</label><input id="preCpus" type="number" min="1" value="8"></div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted)"><input type="checkbox" id="preNeut" style="width:auto"> also neutralize charges (default off &mdash; keeps polarity)</label>
+        <button class="smallbtn" style="margin-top:10px;width:100%" id="preGo">Preprocess (clean library) &rarr; cluster</button>
+        <div class="prog" id="prog2">
+          <div class="bar"><i id="fill2"></i></div>
+          <div class="pstat"><span id="pmsg2"></span><span id="ppct2"></span></div>
+          <div class="note" id="pnote2"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -574,6 +638,30 @@ async function poll(){
     $('#go').disabled=false;}
 }
 
+let run2=null,timer2=null;
+$('#preGo').onclick=async()=>{
+  if(!smi.length){$('#pnote2').textContent='pick at least one SMILES file first';$('#prog2').style.display='block';return;}
+  $('#preGo').disabled=true;$('#prog2').style.display='block';$('#fill2').style.width='0';
+  $('#pmsg2').textContent='splitting & submitting...';$('#ppct2').textContent='';$('#pnote2').textContent='';
+  const body={smiles_paths:smi,out_dir:cwd,out_name:$('#preOut').value,tasks:$('#preTasks').value,
+    cpus:$('#preCpus').value,neutralize:$('#preNeut').checked};
+  const d=await(await fetch('/api/preprocess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(!d.ok){$('#pmsg2').textContent='failed';$('#pnote2').textContent=d.error||'error';$('#preGo').disabled=false;return;}
+  run2=d;$('#pmsg2').innerHTML='job '+(d.job||'?')+' &middot; '+d.total+' chunks (CPU)';poll2();timer2=setInterval(poll2,3000);
+};
+async function poll2(){
+  if(!run2)return;
+  const q='dir='+encodeURIComponent(run2.chunks_dir||'')+'&out='+encodeURIComponent(run2.out)+'&job='+encodeURIComponent(run2.job||'')+'&total='+(run2.total||1);
+  const d=await(await fetch('/api/progress?'+q)).json();
+  const tot=d.total||run2.total||1,done=Math.min(d.done||0,tot),pct=Math.round(100*done/tot);
+  $('#fill2').style.width=(d.merged?100:pct)+'%';$('#ppct2').textContent=(d.merged?100:pct)+'%';
+  let s='state: '+(d.state||'...')+'  ('+done+'/'+tot+' chunks';if(d.running)s+=', '+d.running+' running';s+=')';
+  $('#pmsg2').innerHTML=s;
+  if(d.merged){clearInterval(timer2);
+    $('#pmsg2').innerHTML='<span class="ok">clean library ready &middot; '+(d.rows!=null?d.rows+' unique molecules':'')+'</span>';
+    $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> &mdash; now pick it as a SMILES file to screen';
+    $('#preGo').disabled=false;}
+}
 async function aiDetect(){
   $('#aiStatus').textContent='detecting...';
   const d=await(await fetch('/api/ai/detect',{method:'POST',headers:{'Content-Type':'application/json'},
