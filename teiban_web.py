@@ -185,10 +185,12 @@ def submit(data):
 
     submit_sh = os.path.join(workdir, "submit_teiban.sh")
     subprocess.run(["bash", "-c", f'singularity exec "{sif}" cat /opt/teiban/submit_teiban.sh > "{submit_sh}"'])
-    run = subprocess.run(
-        ["bash", submit_sh, "--input", pairs_csv, "--output", out_csv, "--partition", partition,
-         "--chunks", str(pieces), "--maxpar", str(maxpar), "--model", model, "--sif", sif],
-        capture_output=True, text=True, cwd=workdir)
+    cmd = ["bash", submit_sh, "--input", pairs_csv, "--output", out_csv, "--partition", partition,
+           "--chunks", str(pieces), "--maxpar", str(maxpar), "--model", model, "--sif", sif]
+    batch = str(data.get("batch") or "").strip()
+    if batch.isdigit() and int(batch) >= 1:
+        cmd += ["--batch_size", batch]
+    run = subprocess.run(cmd, capture_output=True, text=True, cwd=workdir)
     out = run.stdout + run.stderr
     mjob = re.search(r"array job:\s*(\d+)", out) or re.search(r"Submitted batch job (\d+)", out)
     mdir = re.search(r"chunks -> (\S+)", out)
@@ -223,6 +225,19 @@ def progress(qs):
     elif res["merged"]:
         res["state"] = "done"
     return res
+
+
+def cluster_info():
+    """Detect GPU partitions on THIS cluster so the UI isn't hardcoded to one site."""
+    parts = []
+    if shutil.which("sinfo"):
+        r = subprocess.run(["sinfo", "-h", "-o", "%R %G"], capture_output=True, text=True)
+        for line in r.stdout.splitlines():
+            f = line.split()
+            if len(f) >= 2 and "gpu:" in f[1].lower() and f[0] not in parts:
+                parts.append(f[0])
+    return {"partitions": parts, "sbatch": bool(shutil.which("sbatch")),
+            "default": CFG["partition"] if CFG["partition"] in parts else (parts[0] if parts else "")}
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +333,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, list_dir(qs.get("path", [""])[0]))
         if u.path == "/api/progress":
             return self._send(200, progress(qs))
+        if u.path == "/api/cluster":
+            return self._send(200, cluster_info())
         if u.path == "/api/download":
             p = safe_path(qs.get("path", [""])[0])
             if not p or not os.path.isfile(p):
@@ -445,13 +462,14 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
       <label>Protein target(s) &mdash; paste one sequence, or a multi-record FASTA (or pick a file on the left)</label>
       <textarea id="prot" placeholder=">CDK2&#10;MENFQK...&#10;>ABL1&#10;MGPSEND..."></textarea>
       <div class="g3">
-        <div><label>GPUs (parallel)</label><input id="gpus" type="number" min="1" max="28" value="8"></div>
-        <div><label>Partition</label><select id="part"><option>all</option><option>intel</option></select></div>
+        <div><label>GPUs (parallel)</label><input id="gpus" type="number" min="1" max="256" value="8"></div>
+        <div><label>Partition <span id="partHint" style="color:var(--muted)"></span></label><select id="part"></select></div>
         <div><label>Model</label><select id="model"><option>BiLSTM</option><option>CNN</option><option>both</option></select></div>
       </div>
-      <div class="g2">
+      <div class="g3">
         <div><label>Output CSV name</label><input id="out" value="screen_pred.csv"></div>
-        <div><label>Protein id (for a single pasted seq)</label><input id="pid" value="target"></div>
+        <div><label>Batch size <span style="color:var(--muted)" title="lower to ~64 for 16GB GPUs">(64 for 16GB)</span></label><input id="batch" type="number" min="1" value="128"></div>
+        <div><label>Protein id (single seq)</label><input id="pid" value="target"></div>
       </div>
       <button class="go" id="go" disabled>Submit screen to cluster</button>
       <div class="prog" id="prog">
@@ -533,7 +551,8 @@ $('#go').onclick=async()=>{
   $('#go').disabled=true;$('#prog').style.display='block';$('#fill').style.width='0';
   $('#pmsg').textContent='building pairs & submitting...';$('#ppct').textContent='';$('#pnote').textContent='';
   const body={smiles_paths:smi,protein_file:protFile,protein:$('#prot').value,protein_id:$('#pid').value,
-    out_dir:cwd,out_name:$('#out').value,gpus:$('#gpus').value,partition:$('#part').value,model:$('#model').value};
+    out_dir:cwd,out_name:$('#out').value,gpus:$('#gpus').value,partition:$('#part').value,
+    model:$('#model').value,batch:$('#batch').value};
   const d=await(await fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!d.ok){$('#pmsg').textContent='failed';$('#pnote').textContent=d.error||'error';$('#go').disabled=false;return;}
   run=d;
@@ -579,6 +598,17 @@ async function aiSend(){
   wait.textContent=d.ok?d.reply:('[error] '+d.error);
   if(d.ok)aiHist.push({role:'assistant',content:d.reply});
 }
+async function loadCluster(){
+  try{
+    const d=await(await fetch('/api/cluster')).json();
+    const sel=$('#part');
+    const parts=(d.partitions&&d.partitions.length)?d.partitions:['all'];
+    sel.innerHTML=parts.map(p=>'<option'+(p===d.default?' selected':'')+'>'+esc(p)+'</option>').join('');
+    $('#partHint').textContent=d.partitions.length?'(detected)':'(none detected)';
+    if(!d.sbatch)$('#partHint').textContent='(no sbatch here!)';
+  }catch(e){$('#part').innerHTML='<option>all</option>';}
+}
+loadCluster();
 ls('');
 </script></body></html>"""
 

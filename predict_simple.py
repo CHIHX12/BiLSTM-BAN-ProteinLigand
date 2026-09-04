@@ -1797,7 +1797,9 @@ def print_about():
               protein   = one sequence per line, or PDBID <tab> sequence
     * Output  saved as a CSV; ligand_id / receptor_id are kept for lookup.
     * Cluster keep the .sif on shared storage (/home) so compute nodes see it;
-              pick a GPU partition (all / intel; the amd default has no GPU).
+              the GPU partition is auto-detected via sinfo.
+    * New host moving to another cluster (e.g. V100 16GB)? see PORTABILITY.md --
+              set TEIBAN_BATCH=64 for 16GB GPUs; driver must support CUDA 12.1.
     * AI      optional; needs a .env in the current folder (menu 'setup').
               It never invents a SMILES and never leaks its instructions.""")
     print("  " + line)

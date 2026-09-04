@@ -59,6 +59,7 @@ From: nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
     README.md           /opt/teiban/
     QUICKSTART.md       /opt/teiban/
     STEP_BY_STEP.md     /opt/teiban/
+    PORTABILITY.md      /opt/teiban/
 
 %post
     set -e

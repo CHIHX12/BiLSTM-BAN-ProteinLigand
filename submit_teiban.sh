@@ -21,8 +21,15 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-INPUT=""; OUTPUT=""; MODEL="BiLSTM"; PARTITION="all"; GPUS=1; CPUS=16
-TIME="24:00:00"; CHUNKS=1; BATCH=128; SIF="$HERE/teiban.sif"; DRYRUN=0; MAXPAR=""
+# Defaults are ENV-OVERRIDABLE so a new cluster is configured once, not in code:
+#   TEIBAN_PARTITION  GPU partition name  (auto-detected via sinfo when unset)
+#   TEIBAN_GRES       gres name           (default: gpu; some sites need e.g. gpu:v100)
+#   TEIBAN_CPUS       cpus per task       (default: 16)
+#   TEIBAN_BATCH      predict batch size  (default: 128; use ~64 for <=16GB GPUs)
+#   TEIBAN_TIME       time limit          (default: 24:00:00)
+INPUT=""; OUTPUT=""; MODEL="BiLSTM"; GPUS=1; CHUNKS=1; SIF="$HERE/teiban.sif"; DRYRUN=0; MAXPAR=""
+PARTITION="${TEIBAN_PARTITION:-}"; GRES="${TEIBAN_GRES:-gpu}"; CPUS="${TEIBAN_CPUS:-16}"
+BATCH="${TEIBAN_BATCH:-128}"; TIME="${TEIBAN_TIME:-24:00:00}"
 
 usage() { grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -20; exit 1; }
 
@@ -32,6 +39,7 @@ while [ $# -gt 0 ]; do
     --output) OUTPUT="$2"; shift 2;;
     --model) MODEL="$2"; shift 2;;
     --partition) PARTITION="$2"; shift 2;;
+    --gres) GRES="$2"; shift 2;;
     --gpus) GPUS="$2"; shift 2;;
     --cpus) CPUS="$2"; shift 2;;
     --time) TIME="$2"; shift 2;;
@@ -52,6 +60,23 @@ if [ "$DRYRUN" = 0 ] && [ ! -f "$SIF" ]; then echo "ERROR: sif not found: $SIF";
 INPUT="$(readlink -f "$INPUT")"; SIF="$(readlink -f "$SIF")"
 mkdir -p "$(dirname "$OUTPUT")" 2>/dev/null || true
 
+# --- pick / validate a GPU partition (portable across clusters) -------------
+# The next cluster won't have 'all'/'intel'. If TEIBAN_PARTITION/--partition is
+# unset or names a partition that doesn't exist here, fall back to the first
+# partition that advertises a GPU gres, so no partition name is baked in.
+detect_gpu_partition() { sinfo -h -o "%R %G" 2>/dev/null | awk 'tolower($0) ~ /gpu:/{print $1; exit}'; }
+if command -v sinfo >/dev/null 2>&1; then
+  [ -z "$PARTITION" ] && PARTITION="$(detect_gpu_partition)"
+  if [ -n "$PARTITION" ] && ! sinfo -h -o "%R" 2>/dev/null | grep -qxF "$PARTITION"; then
+    ALT="$(detect_gpu_partition)"
+    if [ -n "$ALT" ]; then
+      echo "[submit] partition '$PARTITION' not found on this cluster; using detected GPU partition '$ALT'"
+      PARTITION="$ALT"
+    fi
+  fi
+fi
+[ -z "$PARTITION" ] && PARTITION="all"   # last resort if sinfo is unavailable
+
 run() { if [ "$DRYRUN" = 1 ]; then echo "[dry-run] would run: $*"; else "$@"; fi; }
 
 # ---- single job ----------------------------------------------------------
@@ -61,11 +86,12 @@ if [ "$CHUNKS" -le 1 ]; then
 #!/usr/bin/env bash
 #SBATCH --job-name=teiban
 #SBATCH --partition=$PARTITION
-#SBATCH --gres=gpu:$GPUS
+#SBATCH --gres=$GRES:$GPUS
 #SBATCH --cpus-per-task=$CPUS
 #SBATCH --time=$TIME
 #SBATCH --output=teiban_%j.log
 set -e
+nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || echo "[warn] nvidia-smi unavailable"
 singularity exec --nv "$SIF" python3 /opt/teiban/predict.py \\
     --input "$INPUT" --output "$OUTPUT" \\
     --model $MODEL --batch_size $BATCH --num_workers $CPUS
@@ -102,13 +128,14 @@ cat > "$ARRAY_SBATCH" <<EOF
 #!/usr/bin/env bash
 #SBATCH --job-name=teiban_arr
 #SBATCH --partition=$PARTITION
-#SBATCH --gres=gpu:$GPUS
+#SBATCH --gres=$GRES:$GPUS
 #SBATCH --cpus-per-task=$CPUS
 #SBATCH --time=$TIME
 #SBATCH --array=0-$((NPARTS-1))$MAXTAG
 #SBATCH --output=$CDIR/task_%a.log
 set -e
 P=\$(printf "%03d" \$SLURM_ARRAY_TASK_ID)
+nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || echo "[warn] nvidia-smi unavailable"
 singularity exec --nv "$SIF" python3 /opt/teiban/predict.py \\
     --input "$CDIR/part_\$P.csv" --output "$CDIR/pred_\$P.csv" \\
     --model $MODEL --batch_size $BATCH --num_workers $CPUS
