@@ -1,0 +1,37 @@
+Bootstrap: localimage
+From: teiban.sif
+
+# ============================================================================
+# teiban-internal  --  INTERNAL build of the TEIBAN image
+# ----------------------------------------------------------------------------
+# Identical code + model to teiban.sif, but the AI assistant runs in OPEN mode:
+# it may also answer general questions / chit-chat, not only TEIBAN topics.
+# It STILL uses the model for binding, still requires user-provided SMILES /
+# sequences (never guesses a structure from a drug name), and still does not
+# reveal its own instructions.
+#
+# This is a thin layer on top of teiban.sif -- it only flips TEIBAN_AI_MODE to
+# "open", so it builds in seconds and never diverges from the main image.
+#
+# BUILD (after teiban.sif has been (re)built with the current code):
+#   SINGULARITY_TMPDIR=$HOME/.singularity/tmp \
+#   SINGULARITY_CACHEDIR=$HOME/.singularity/cache \
+#   singularity build --fakeroot teiban-internal.sif teiban-internal.def
+#
+# RUN (same as teiban.sif; add --nv for the GPU):
+#   singularity exec --nv teiban-internal.sif python3 /opt/teiban/predict_simple.py
+# ============================================================================
+
+%environment
+    export TEIBAN_AI_MODE=open
+
+%labels
+    Project    teiban
+    Variant    internal (AI open mode)
+    Base       teiban.sif
+
+%help
+    Internal TEIBAN image. Same as teiban.sif, but the AI assistant answers
+    general questions too (TEIBAN_AI_MODE=open). Hand teiban.sif to external
+    collaborators (strict, TEIBAN-only) and teiban-internal.sif to internal
+    users who want a more flexible assistant.
