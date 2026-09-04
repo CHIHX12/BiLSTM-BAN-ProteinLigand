@@ -17,7 +17,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-OUTPUT=""; CHUNKS=100; MAXPAR=""; SIF="$HERE/teiban.sif"; DRYRUN=0; NEUTRALIZE=0
+OUTPUT=""; CHUNKS=100; MAXPAR=""; SIF="$HERE/teiban.sif"; DRYRUN=0; NEUTRALIZE=0; CHUNKSDIR=""
 PARTITION="${TEIBAN_CPU_PARTITION:-${TEIBAN_PARTITION:-}}"; CPUS="${TEIBAN_CPUS:-8}"
 TIME="${TEIBAN_TIME:-24:00:00}"; declare -a INPUTS=()
 
@@ -27,6 +27,7 @@ while [ $# -gt 0 ]; do
     --input) INPUTS+=("$2"); shift 2;;
     --output) OUTPUT="$2"; shift 2;;
     --chunks) CHUNKS="$2"; shift 2;;
+    --chunks-dir) CHUNKSDIR="$2"; shift 2;;
     --maxpar) MAXPAR="$2"; shift 2;;
     --cpus) CPUS="$2"; shift 2;;
     --partition) PARTITION="$2"; shift 2;;
@@ -60,7 +61,7 @@ done
 [ -s "$RAW_LIST" ] || { echo "ERROR: no input SMILES files found"; exit 1; }
 echo "[prep] input files: $(wc -l < "$RAW_LIST")   partition=$PARTITION (CPU)  cpus/task=$CPUS  chunks=$CHUNKS"
 
-CDIR="$OUTDIR/teiban_prep_$$"; mkdir -p "$CDIR"
+CDIR="${CHUNKSDIR:-$OUTDIR/teiban_prep_$$}"; mkdir -p "$CDIR"
 # Split into ~CHUNKS sequential files with `split -l` (opens ONE file at a time,
 # so it never hits the open-file limit even for hundreds of chunks / 700M lines).
 mapfile -t FILES < "$RAW_LIST"; rm -f "$RAW_LIST"

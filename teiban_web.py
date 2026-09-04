@@ -120,20 +120,36 @@ def count_lines(path):
 # ---------------------------------------------------------------------------
 # Submit + progress
 # ---------------------------------------------------------------------------
+def _shq(s):
+    """Double-quote a value for embedding in a shell --wrap string."""
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def cpu_partition():
+    """A CPU partition for the controller job (Slurm default partition, usually CPU)."""
+    if shutil.which("sinfo"):
+        toks = subprocess.run(["sinfo", "-h", "-o", "%P"], capture_output=True, text=True).stdout.split()
+        for t in toks:
+            if t.endswith("*"):
+                return t.rstrip("*")
+        if toks:
+            return toks[0].rstrip("*")
+    return "amd"
+
+
 def submit(data):
+    """Submit a screen. The login node fires ONE controller sbatch (CPU node);
+    that job builds the clean pairs CSV and dispatches the GPU array -- so ALL the
+    heavy work (SMILES cleaning, splitting, prediction) runs on the cluster."""
     sif = find_sif()
     if not sif:
         return {"ok": False, "error": "teiban.sif not found -- start me next to it or pass --sif"}
     if not shutil.which("sbatch"):
         return {"ok": False, "error": "sbatch not found -- run me on the Slurm login node"}
-
-    # SMILES: one or many files
     smiles_paths = data.get("smiles_paths") or ([data["smiles_path"]] if data.get("smiles_path") else [])
-    smiles_paths = [safe_path(s) for s in smiles_paths]
-    smiles_paths = [s for s in smiles_paths if s and os.path.isfile(s)]
+    smiles_paths = [s for s in (safe_path(p) for p in smiles_paths) if s and os.path.isfile(s)]
     if not smiles_paths:
         return {"ok": False, "error": "pick at least one SMILES file"}
-
     workdir = safe_path(data.get("out_dir") or data.get("workdir")) or os.path.realpath(CFG["root"])
     if not os.path.isdir(workdir):
         return {"ok": False, "error": "the output folder is not valid"}
@@ -147,60 +163,51 @@ def submit(data):
     if not out_name.lower().endswith(".csv"):
         out_name += ".csv"
     out_csv = os.path.join(workdir, out_name)
-
     tag = time.strftime("%Y%m%d_%H%M%S")
     pairs_csv = os.path.join(workdir, f"screen_{tag}_pairs.csv")
+    chunks_dir = os.path.join(workdir, f"teiban_chunks_{tag}")
 
-    # protein: a picked FASTA/list file, or pasted text
     protein_file = safe_path(data.get("protein_file")) if data.get("protein_file") else None
     protein_text = (data.get("protein") or "").strip()
-    build = ["singularity", "exec", sif, "python3", "/opt/teiban/predict_simple.py",
-             "--screen-csv", "--output", pairs_csv, "--workers", str(min(16, os.cpu_count() or 4))]
-    for s in smiles_paths:
-        build += ["--drug-file", s]
     if protein_file and os.path.isfile(protein_file):
-        build += ["--protein-file", protein_file]
-    elif protein_text and ">" in protein_text:                      # pasted FASTA -> temp file
+        prot = "--protein-file " + _shq(protein_file)
+    elif protein_text and ">" in protein_text:
         pf = os.path.join(workdir, f"screen_{tag}_targets.fasta")
         with open(pf, "w", encoding="utf-8") as f:
             f.write(protein_text)
-        build += ["--protein-file", pf]
-    elif protein_text:                                              # single pasted sequence
-        build += ["--protein", protein_text, "--protein-id",
-                  (data.get("protein_id") or "target").strip() or "target"]
+        prot = "--protein-file " + _shq(pf)
+    elif protein_text:
+        prot = ("--protein " + _shq(protein_text) + " --protein-id "
+                + _shq((data.get("protein_id") or "target").strip() or "target"))
     else:
         return {"ok": False, "error": "give a protein: paste a sequence/FASTA or pick a FASTA file"}
 
-    b = subprocess.run(build, capture_output=True, text=True)
-    if b.returncode != 0 or not os.path.isfile(pairs_csv):
-        return {"ok": False, "error": "could not build pairs: " + (b.stdout + b.stderr).strip()[-400:]}
-    npairs = max(0, count_lines(pairs_csv) - 1)
-    if npairs == 0:
-        return {"ok": False, "error": "no valid drug-protein pairs after cleaning"}
-
-    # dynamic load balancing: many small pieces, at most `gpus` on GPUs at once.
-    pieces = max(gpus * 2, math.ceil(npairs / max(1, CFG["piece"])))
-    pieces = max(1, min(pieces, npairs, MAX_PIECES))
-    maxpar = max(1, min(gpus, pieces))
-
     submit_sh = os.path.join(workdir, "submit_teiban.sh")
     subprocess.run(["bash", "-c", f'singularity exec "{sif}" cat /opt/teiban/submit_teiban.sh > "{submit_sh}"'])
-    cmd = ["bash", submit_sh, "--input", pairs_csv, "--output", out_csv, "--partition", partition,
-           "--chunks", str(pieces), "--maxpar", str(maxpar), "--model", model, "--sif", sif]
+
     batch = str(data.get("batch") or "").strip()
-    if batch.isdigit() and int(batch) >= 1:
-        cmd += ["--batch_size", batch]
-    run = subprocess.run(cmd, capture_output=True, text=True, cwd=workdir)
-    out = run.stdout + run.stderr
-    mjob = re.search(r"array job:\s*(\d+)", out) or re.search(r"Submitted batch job (\d+)", out)
-    mdir = re.search(r"chunks -> (\S+)", out)
-    job = mjob.group(1) if mjob else ""
-    chunks_dir = mdir.group(1) if mdir else ""
-    if not job and not chunks_dir:
-        return {"ok": False, "error": "Slurm submit failed: " + out.strip()[-400:]}
-    return {"ok": True, "job": job, "chunks_dir": chunks_dir, "total": pieces, "maxpar": maxpar,
-            "pairs": npairs, "out": out_csv, "smiles_files": len(smiles_paths),
-            "log": out.strip()[-600:]}
+    batch_arg = f" --batch_size {int(batch)}" if batch.isdigit() and int(batch) >= 1 else ""
+    ctrl_cpus = str(data.get("build_cpus") or "16")
+    ctrl_cpus = int(ctrl_cpus) if ctrl_cpus.isdigit() and int(ctrl_cpus) >= 1 else 16
+
+    drug_args = " ".join("--drug-file " + _shq(s) for s in smiles_paths)
+    build = (f"singularity exec {_shq(sif)} python3 /opt/teiban/predict_simple.py --screen-csv "
+             f"--output {_shq(pairs_csv)} --workers $SLURM_CPUS_PER_TASK {drug_args} {prot}")
+    dispatch = (f"bash {_shq(submit_sh)} --input {_shq(pairs_csv)} --output {_shq(out_csv)} "
+                f"--chunks auto --maxpar {gpus} --piece {CFG['piece']} --chunks-dir {_shq(chunks_dir)} "
+                f"--partition {_shq(partition)} --model {model} --sif {_shq(sif)}{batch_arg}")
+    wrap = f"mkdir -p {_shq(chunks_dir)} && {build} && {dispatch}"
+    ctrl_log = os.path.join(workdir, f"controller_{tag}.log")
+    r = subprocess.run(["sbatch", "--parsable", "--job-name=teiban_prep",
+                        f"--partition={cpu_partition()}", f"--cpus-per-task={ctrl_cpus}",
+                        f"--output={ctrl_log}", "--wrap", wrap],
+                       capture_output=True, text=True, cwd=workdir)
+    job = r.stdout.strip().split(";")[0]
+    if not job.isdigit():
+        return {"ok": False, "error": "controller submit failed: " + (r.stdout + r.stderr).strip()[-400:]}
+    return {"ok": True, "job": job, "chunks_dir": chunks_dir, "total": 0, "maxpar": gpus,
+            "out": out_csv, "smiles_files": len(smiles_paths), "controller_log": ctrl_log,
+            "kind": "screen"}
 
 
 def submit_preprocess(data):
@@ -228,25 +235,26 @@ def submit_preprocess(data):
     cpus = str(data.get("cpus") or "8")
     cpus = int(cpus) if cpus.isdigit() and int(cpus) >= 1 else 8
 
+    tag = time.strftime("%Y%m%d_%H%M%S")
+    prep_dir = os.path.join(workdir, f"teiban_prep_{tag}")
     pre_sh = os.path.join(workdir, "preprocess_teiban.sh")
     subprocess.run(["bash", "-c", f'singularity exec "{sif}" cat /opt/teiban/preprocess_teiban.sh > "{pre_sh}"'])
-    cmd = ["bash", pre_sh]
-    for s in smiles_paths:
-        cmd += ["--input", s]
-    cmd += ["--output", out, "--chunks", str(tasks * 4), "--maxpar", str(tasks),
-            "--cpus", str(cpus), "--sif", sif]
-    if data.get("neutralize"):
-        cmd += ["--neutralize"]
-    run = subprocess.run(cmd, capture_output=True, text=True, cwd=workdir)
-    o = run.stdout + run.stderr
-    mjob = re.search(r"array job:\s*(\d+)", o)
-    mdir = re.search(r"-> (\S*teiban_prep_\d+)", o)
-    ntot = re.search(r"split into (\d+) chunks", o)
-    if not mjob or not mdir:
-        return {"ok": False, "error": "preprocess submit failed: " + o.strip()[-400:]}
-    return {"ok": True, "job": mjob.group(1), "chunks_dir": mdir.group(1),
-            "total": int(ntot.group(1)) if ntot else tasks * 4, "out": out,
-            "kind": "preprocess", "log": o.strip()[-500:]}
+    inputs = " ".join("--input " + _shq(s) for s in smiles_paths)
+    neut = " --neutralize" if data.get("neutralize") else ""
+    inner = (f"bash {_shq(pre_sh)} {inputs} --output {_shq(out)} --chunks {tasks * 4} "
+             f"--maxpar {tasks} --cpus {cpus} --chunks-dir {_shq(prep_dir)} --sif {_shq(sif)}{neut}")
+    wrap = f"mkdir -p {_shq(prep_dir)} && {inner}"
+    ctrl_log = os.path.join(workdir, f"controller_prep_{tag}.log")
+    # controller runs on a CPU node -> even the (big) split happens on the cluster
+    r = subprocess.run(["sbatch", "--parsable", "--job-name=teiban_prep_ctrl",
+                        f"--partition={cpu_partition()}", "--cpus-per-task=2",
+                        f"--output={ctrl_log}", "--wrap", wrap],
+                       capture_output=True, text=True, cwd=workdir)
+    job = r.stdout.strip().split(";")[0]
+    if not job.isdigit():
+        return {"ok": False, "error": "preprocess controller submit failed: " + (r.stdout + r.stderr).strip()[-400:]}
+    return {"ok": True, "job": job, "chunks_dir": prep_dir, "total": 0, "out": out,
+            "kind": "preprocess", "controller_log": ctrl_log}
 
 
 def progress(qs):
@@ -265,14 +273,19 @@ def progress(qs):
         res["done"] = res["total"] or res["done"]
         n = count_lines(out)
         res["rows"] = max(0, n - 1) if out.lower().endswith(".csv") else n
+    ctrl_states = []
     if shutil.which("squeue") and job:
         r = subprocess.run(["squeue", "-j", job, "-h", "-o", "%T"], capture_output=True, text=True)
-        states = [s for s in r.stdout.split() if s]
-        res["running"] = sum(1 for s in states if s == "RUNNING")
-        res["pending"] = sum(1 for s in states if s == "PENDING")
-        res["state"] = ",".join(sorted(set(states))) or ("done" if res["merged"] else "finishing")
-    elif res["merged"]:
+        ctrl_states = [s for s in r.stdout.split() if s]
+        res["running"] = sum(1 for s in ctrl_states if s == "RUNNING")
+    # phase: preparing (controller building on the cluster) -> predicting -> done
+    if res["merged"]:
         res["state"] = "done"
+    elif res["total"] > 0:
+        res["state"] = f"running ({res['running']} on GPU)" if res["running"] else "predicting on cluster"
+    else:
+        res["state"] = "preparing on cluster (cleaning + building)" if ctrl_states else "queued"
+        res["preparing"] = True
     return res
 
 
@@ -620,18 +633,17 @@ $('#go').onclick=async()=>{
   const d=await(await fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!d.ok){$('#pmsg').textContent='failed';$('#pnote').textContent=d.error||'error';$('#go').disabled=false;return;}
   run=d;
-  $('#pmsg').innerHTML='job '+(d.job||'?')+' &middot; '+d.pairs+' pairs, '+d.total+' pieces, up to '+d.maxpar+' GPU(s)';
+  $('#pmsg').innerHTML='controller job '+(d.job||'?')+' submitted (all work runs on the cluster)';
   poll();timer=setInterval(poll,3000);
 };
 async function poll(){
   if(!run)return;
   const q='dir='+encodeURIComponent(run.chunks_dir||'')+'&out='+encodeURIComponent(run.out)+'&job='+encodeURIComponent(run.job||'')+'&total='+(run.total||1);
   const d=await(await fetch('/api/progress?'+q)).json();
+  if(!d.merged && (d.preparing || !(d.total>0))){$('#pmsg').textContent=(d.state||'preparing on cluster')+' ...';$('#ppct').textContent='';$('#fill').style.width='6%';return;}
   const tot=d.total||run.total||1,done=Math.min(d.done||0,tot),pct=Math.round(100*done/tot);
   $('#fill').style.width=(d.merged?100:pct)+'%';$('#ppct').textContent=(d.merged?100:pct)+'%';
-  let s='state: '+(d.state||'...')+'  ('+done+'/'+tot+' pieces';
-  if(d.running)s+=', '+d.running+' running';if(d.pending)s+=', '+d.pending+' queued';s+=')';
-  $('#pmsg').innerHTML=s;
+  $('#pmsg').innerHTML='state: '+(d.state||'...')+'  ('+done+'/'+tot+' pieces)';
   if(d.merged){clearInterval(timer);
     $('#pmsg').innerHTML='<span class="ok">done &middot; '+(d.rows!=null?d.rows+' predictions':'')+'</span>';
     $('#pnote').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run.out)+'">'+esc(run.out.split('/').pop())+'</a>';
@@ -647,16 +659,16 @@ $('#preGo').onclick=async()=>{
     cpus:$('#preCpus').value,neutralize:$('#preNeut').checked};
   const d=await(await fetch('/api/preprocess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(!d.ok){$('#pmsg2').textContent='failed';$('#pnote2').textContent=d.error||'error';$('#preGo').disabled=false;return;}
-  run2=d;$('#pmsg2').innerHTML='job '+(d.job||'?')+' &middot; '+d.total+' chunks (CPU)';poll2();timer2=setInterval(poll2,3000);
+  run2=d;$('#pmsg2').innerHTML='controller job '+(d.job||'?')+' submitted (runs on the cluster)';poll2();timer2=setInterval(poll2,3000);
 };
 async function poll2(){
   if(!run2)return;
   const q='dir='+encodeURIComponent(run2.chunks_dir||'')+'&out='+encodeURIComponent(run2.out)+'&job='+encodeURIComponent(run2.job||'')+'&total='+(run2.total||1);
   const d=await(await fetch('/api/progress?'+q)).json();
+  if(!d.merged && (d.preparing || !(d.total>0))){$('#pmsg2').textContent=(d.state||'preparing on cluster')+' ...';$('#ppct2').textContent='';$('#fill2').style.width='6%';return;}
   const tot=d.total||run2.total||1,done=Math.min(d.done||0,tot),pct=Math.round(100*done/tot);
   $('#fill2').style.width=(d.merged?100:pct)+'%';$('#ppct2').textContent=(d.merged?100:pct)+'%';
-  let s='state: '+(d.state||'...')+'  ('+done+'/'+tot+' chunks';if(d.running)s+=', '+d.running+' running';s+=')';
-  $('#pmsg2').innerHTML=s;
+  $('#pmsg2').innerHTML='state: '+(d.state||'...')+'  ('+done+'/'+tot+' chunks)';
   if(d.merged){clearInterval(timer2);
     $('#pmsg2').innerHTML='<span class="ok">clean library ready &middot; '+(d.rows!=null?d.rows+' unique molecules':'')+'</span>';
     $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> &mdash; now pick it as a SMILES file to screen';

@@ -28,6 +28,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 #   TEIBAN_BATCH      predict batch size  (default: 128; use ~64 for <=16GB GPUs)
 #   TEIBAN_TIME       time limit          (default: 24:00:00)
 INPUT=""; OUTPUT=""; MODEL="BiLSTM"; GPUS=1; CHUNKS=1; SIF="$HERE/teiban.sif"; DRYRUN=0; MAXPAR=""
+CHUNKSDIR=""; PIECE="${TEIBAN_PIECE:-50000}"
 PARTITION="${TEIBAN_PARTITION:-}"; GRES="${TEIBAN_GRES:-gpu}"; CPUS="${TEIBAN_CPUS:-16}"
 BATCH="${TEIBAN_BATCH:-128}"; TIME="${TEIBAN_TIME:-24:00:00}"
 
@@ -44,6 +45,8 @@ while [ $# -gt 0 ]; do
     --cpus) CPUS="$2"; shift 2;;
     --time) TIME="$2"; shift 2;;
     --chunks) CHUNKS="$2"; shift 2;;
+    --chunks-dir) CHUNKSDIR="$2"; shift 2;;
+    --piece) PIECE="$2"; shift 2;;
     --maxpar) MAXPAR="$2"; shift 2;;
     --batch_size) BATCH="$2"; shift 2;;
     --sif) SIF="$2"; shift 2;;
@@ -77,6 +80,19 @@ if command -v sinfo >/dev/null 2>&1; then
 fi
 [ -z "$PARTITION" ] && PARTITION="all"   # last resort if sinfo is unavailable
 
+# Resolve --chunks auto -> a piece count from the ACTUAL row count. Lets a caller
+# (e.g. the web controller job) submit before knowing the pair count.
+ROWS=$(( $(wc -l < "$INPUT") - 1 )); [ "$ROWS" -lt 0 ] && ROWS=0
+if [ "$CHUNKS" = "auto" ]; then
+  MP="${MAXPAR:-1}"; case "$MP" in ''|*[!0-9]*) MP=1;; esac; [ "$MP" -lt 1 ] && MP=1
+  BYSIZE=$(( (ROWS + PIECE - 1) / PIECE )); CHUNKS=$(( MP * 2 ))
+  [ "$BYSIZE" -gt "$CHUNKS" ] && CHUNKS=$BYSIZE
+  [ "$CHUNKS" -gt 256 ] && CHUNKS=256
+  [ "$CHUNKS" -gt "$ROWS" ] && CHUNKS="$ROWS"
+  [ "$CHUNKS" -lt 1 ] && CHUNKS=1
+  echo "[submit] auto chunks: $ROWS rows -> $CHUNKS pieces (maxpar ${MAXPAR:-none})"
+fi
+
 run() { if [ "$DRYRUN" = 1 ]; then echo "[dry-run] would run: $*"; else "$@"; fi; }
 
 # ---- single job ----------------------------------------------------------
@@ -104,7 +120,7 @@ EOF
 fi
 
 # ---- chunked array (multi-GPU via data parallelism) ----------------------
-CDIR="$(dirname "$(readlink -f "$OUTPUT")")/teiban_chunks_$$"
+CDIR="${CHUNKSDIR:-$(dirname "$(readlink -f "$OUTPUT")")/teiban_chunks_$$}"
 mkdir -p "$CDIR"
 HEADER="$(head -1 "$INPUT")"
 # round-robin rows into N chunk files, each with the header (order does not
