@@ -1,0 +1,6 @@
+aspirin	CC(=O)Oc1ccccc1C(=O)O
+caffeine	CN1C=NC2=C1C(=O)N(C(=O)N2C)C
+ibuprofen	CC(C)Cc1ccc(cc1)C(C)C(=O)O
+imatinib	Cc1ccc(cc1Nc1nccc(n1)-c1cccnc1)NC(=O)c1ccc(cc1)CN1CCN(C)CC1
+gefitinib	COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1
+sorafenib	CNC(=O)c1cc(Oc2ccc(NC(=O)Nc3ccc(Cl)c(C(F)(F)F)c3)cc2)ccn1

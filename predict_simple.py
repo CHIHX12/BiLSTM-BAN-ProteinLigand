@@ -720,36 +720,89 @@ def build_pairs_csv(folder, ligand_file, receptor_file, output):
     return out, f"{len(good)} clean pair(s) written"
 
 
-def build_screen_csv(protein, protein_id, drug_file, output):
-    """Screening: pair ONE protein sequence with every SMILES in drug_file, clean
-    them (de-salt, drop invalid, de-dup), and write a pairs CSV ready for the
-    cluster. Used by the web UI (1 protein x a big SMILES file). Returns (path, msg)."""
-    pseq, pnote = clean_protein(protein or "")
-    if pseq is None:
-        return None, f"bad protein sequence ({pnote})"
-    if not drug_file or not os.path.isfile(drug_file):
-        return None, f"drug file not found: {drug_file}"
-    drugs = read_smiles_list(drug_file)          # [(id, smiles), ...]  handles ID<tab>SMILES
+def _clean_one_smiles(raw):
+    """Module-level so it can be used with multiprocessing. -> (raw, canonical|None)."""
+    try:
+        return raw, standardize_smiles(raw)[0]
+    except Exception:
+        return raw, None
+
+
+def build_screen_csv(protein, protein_id, drug_files, output, protein_file=None, workers=0):
+    """Screening: pair one OR MANY proteins with every SMILES in one OR MANY drug
+    files, clean everything (de-salt, drop invalid, de-dup) and STREAM a pairs CSV.
+
+    Scales to millions of SMILES: every DISTINCT structure is cleaned only once
+    (in parallel across `workers` processes), the output is written row-by-row, and
+    the whole (drug x protein) product is de-duplicated. Returns (path, msg).
+
+    - proteins: from protein_file (FASTA multi-chain or list) else the `protein` string
+    - drug_files: a path, a comma string, or a list of paths (e.g. smiles_001.txt, ...)
+    """
+    prots = []
+    if protein_file and os.path.isfile(protein_file):
+        prots = read_protein_list(protein_file)          # [(id, seq)], handles FASTA multi-chain
+    elif (protein or "").strip():
+        prots = [((protein_id or "target").strip() or "target", protein)]
+    cprots = []
+    for pid, seq in prots:
+        cs, _ = clean_protein(seq)
+        if cs:
+            cprots.append((pid, cs))
+    if not cprots:
+        return None, "no valid protein sequence(s) found"
+
+    if isinstance(drug_files, str):
+        drug_files = [d for d in re.split(r"[,\n]", drug_files) if d.strip()]
+    drugs = []
+    for df in (drug_files or []):
+        df = df.strip()
+        if df and os.path.isfile(df):
+            drugs.extend(read_smiles_list(df))           # [(id, smiles)]
     if not drugs:
-        return None, "no SMILES found in the drug file"
-    pid = (protein_id or "target").strip() or "target"
-    many = len(drugs) > 1
-    pairs = [{"name": f"{did}~{pid}" if many else did,
-              "ligand_id": did, "receptor_id": pid, "SMILES": ds, "Protein": pseq}
-             for did, ds in drugs]
-    good = validate_pairs(pairs)
-    if not good:
-        return None, "no valid pairs remained after cleaning the SMILES"
+        return None, "no SMILES found in the drug file(s)"
+
+    # Clean each DISTINCT raw SMILES exactly once (parallel for big sets).
+    uniq = list({ds for _, ds in drugs})
+    if not workers or workers < 1:
+        workers = min(16, (os.cpu_count() or 4))
+    clean_map = {}
+    if workers > 1 and len(uniq) > 2000:
+        try:
+            import multiprocessing as mp
+            with mp.Pool(workers) as pool:
+                for raw, c in pool.imap_unordered(_clean_one_smiles, uniq, chunksize=256):
+                    clean_map[raw] = c
+        except Exception:
+            clean_map = {}
+    if not clean_map:
+        for raw in uniq:
+            clean_map[raw] = _clean_one_smiles(raw)[1]
+
     out = os.path.abspath(os.path.expanduser((output or "").strip() or "screen_pairs.csv"))
     if not out.lower().endswith(".csv"):
         out += ".csv"
+    many = len(drugs) > 1 or len(cprots) > 1
+    seen, n, nbad = set(), 0, 0
     with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["name", "ligand_id", "receptor_id", "SMILES", "Protein"])
-        for p in good:
-            w.writerow([p["name"], p.get("ligand_id", ""), p.get("receptor_id", ""),
-                        p["SMILES"], p["Protein"]])
-    return out, f"{len(good)} pair(s) written"
+        for did, ds in drugs:
+            cs = clean_map.get(ds)
+            if not cs:
+                nbad += 1
+                continue
+            for pid, ps in cprots:
+                key = (cs, ps)
+                if key in seen:
+                    continue
+                seen.add(key)
+                w.writerow([f"{did}~{pid}" if many else did, did, pid, cs, ps])
+                n += 1
+    if n == 0:
+        return None, "no valid pairs remained after cleaning"
+    return out, (f"{n} pair(s)  ({len(drugs)} SMILES x {len(cprots)} protein(s)"
+                 + (f", {nbad} invalid skipped" if nbad else "") + ")")
 
 
 def ai_mode():
@@ -1806,12 +1859,15 @@ def parse_args():
     p.add_argument("--screen-csv", dest="screen_csv", action="store_true",
                    help="build a screening pairs CSV: 1 protein x every SMILES in "
                         "--drug-file, cleaned & validated (no GPU needed)")
-    p.add_argument("--drug-file", dest="drug_file",
-                   help="a SMILES list file (one per line, or ID<tab>SMILES)")
+    p.add_argument("--drug-file", dest="drug_file", action="append",
+                   help="a SMILES list file (repeatable: give --drug-file many times for "
+                        "smiles_001.txt, smiles_002.txt, ...; one per line or ID<tab>SMILES)")
     p.add_argument("--protein-file", dest="protein_file",
-                   help="a file holding ONE protein sequence (instead of --protein)")
+                   help="protein source: a FASTA (multi-chain) or a list of sequences")
     p.add_argument("--protein-id", dest="protein_id", default="target",
-                   help="id/label for the protein in --screen-csv (default: target)")
+                   help="id/label for a single --protein sequence (default: target)")
+    p.add_argument("--workers", dest="workers", type=int, default=0,
+                   help="parallel processes for cleaning SMILES (0 = auto, up to 16)")
     return p.parse_args()
 
 
@@ -1831,16 +1887,15 @@ def main():
             sys.exit(1)
         sys.exit(0)
 
-    # Screening CSV builder (used by the web UI): 1 protein x a big SMILES file.
+    # Screening CSV builder (used by the web UI): N protein(s) x a big SMILES file.
     if args.screen_csv:
-        prot = args.protein
-        if not prot and args.protein_file and os.path.isfile(args.protein_file):
-            with open(args.protein_file, encoding="utf-8", errors="replace") as f:
-                prot = f.read()
-        if not prot or not args.drug_file or not args.output:
-            print("ERROR: --screen-csv needs --protein/--protein-file, --drug-file, --output")
+        if not args.drug_file or not args.output or not (args.protein or args.protein_file):
+            print("ERROR: --screen-csv needs --drug-file, --output, and "
+                  "--protein SEQ or --protein-file FASTA/list")
             sys.exit(1)
-        path, msg = build_screen_csv(prot, args.protein_id, args.drug_file, args.output)
+        path, msg = build_screen_csv(args.protein, args.protein_id, args.drug_file,
+                                     args.output, protein_file=args.protein_file,
+                                     workers=args.workers)
         if path is None:
             print(f"ERROR: {msg}")
             sys.exit(1)

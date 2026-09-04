@@ -11,12 +11,18 @@
 # --chunks N > 1 splits the input into N parts and runs a Slurm ARRAY (one GPU
 # per part), then a dependent merge job concatenates the results into --output.
 # This is how to use several GPUs at once (the model itself is single-GPU).
+#
+# DYNAMIC LOAD BALANCING: make N (--chunks) much LARGER than the number of GPUs
+# and cap how many run at once with --maxpar G. Slurm then hands the next pending
+# chunk to whichever GPU finishes first, so fast GPUs are never left idle:
+#   bash submit_teiban.sh --input big.csv --output out.csv --chunks 200 --maxpar 8
+#   # 200 small pieces, at most 8 on GPUs at a time, work-stealing across them.
 # ============================================================================
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 INPUT=""; OUTPUT=""; MODEL="BiLSTM"; PARTITION="all"; GPUS=1; CPUS=16
-TIME="24:00:00"; CHUNKS=1; BATCH=128; SIF="$HERE/teiban.sif"; DRYRUN=0
+TIME="24:00:00"; CHUNKS=1; BATCH=128; SIF="$HERE/teiban.sif"; DRYRUN=0; MAXPAR=""
 
 usage() { grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -20; exit 1; }
 
@@ -30,6 +36,7 @@ while [ $# -gt 0 ]; do
     --cpus) CPUS="$2"; shift 2;;
     --time) TIME="$2"; shift 2;;
     --chunks) CHUNKS="$2"; shift 2;;
+    --maxpar) MAXPAR="$2"; shift 2;;
     --batch_size) BATCH="$2"; shift 2;;
     --sif) SIF="$2"; shift 2;;
     --dry-run) DRYRUN=1; shift;;
@@ -84,6 +91,12 @@ NPARTS=$(ls "$CDIR"/part_*.csv 2>/dev/null | wc -l)
 [ "$NPARTS" -ge 1 ] || { echo "ERROR: split produced no chunks (empty input?)"; exit 1; }
 echo "[submit] split into $NPARTS chunks -> $CDIR"
 
+# Dynamic load balancing: cap concurrent array tasks at --maxpar (the GPUs to use
+# at once). With NPARTS >> MAXPAR, Slurm assigns the next chunk to whichever GPU
+# frees up first. No --maxpar -> all chunks eligible at once (bounded by the queue).
+MAXTAG=""
+if [ -n "$MAXPAR" ] && [ "$MAXPAR" -ge 1 ] 2>/dev/null; then MAXTAG="%$MAXPAR"; fi
+
 ARRAY_SBATCH=$(mktemp /tmp/teiban_array.XXXX.sbatch)
 cat > "$ARRAY_SBATCH" <<EOF
 #!/usr/bin/env bash
@@ -92,7 +105,7 @@ cat > "$ARRAY_SBATCH" <<EOF
 #SBATCH --gres=gpu:$GPUS
 #SBATCH --cpus-per-task=$CPUS
 #SBATCH --time=$TIME
-#SBATCH --array=0-$((NPARTS-1))
+#SBATCH --array=0-$((NPARTS-1))$MAXTAG
 #SBATCH --output=$CDIR/task_%a.log
 set -e
 P=\$(printf "%03d" \$SLURM_ARRAY_TASK_ID)
@@ -123,6 +136,10 @@ if [ "$DRYRUN" = 1 ]; then
   exit 0
 fi
 JID=$(sbatch --parsable "$ARRAY_SBATCH")
-echo "[submit] array job: $JID  ($NPARTS tasks, 1 GPU each)"
+if [ -n "$MAXTAG" ]; then
+  echo "[submit] array job: $JID  ($NPARTS tasks, up to $MAXPAR on GPUs at once -- dynamic)"
+else
+  echo "[submit] array job: $JID  ($NPARTS tasks, 1 GPU each)"
+fi
 sbatch --dependency=afterok:"$JID" "$MERGE_SBATCH"
 echo "[submit] merge job queued (runs after the array finishes) -> $OUTPUT"
