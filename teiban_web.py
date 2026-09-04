@@ -507,23 +507,23 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
 </header>
 <div class="wrap">
   <div class="card">
-    <h2>1 &mdash; pick input files</h2>
+    <h2>1 - pick input files</h2>
     <div class="body">
       <div class="crumb" id="crumb">/</div>
       <div class="list" id="list"></div>
       <div class="picks">
-        <div>SMILES files (drugs): <span id="smiPicks"><i style="color:var(--muted)">none &mdash; click <b>+SMILES</b> on a file</i></span></div>
+        <div>SMILES files (drugs): <span id="smiPicks"><i style="color:var(--muted)">none - click <b>+SMILES</b> on a file</i></span></div>
         <div style="margin-top:8px">Protein file (FASTA/list): <span id="protPick"><i style="color:var(--muted)">none (or paste on the right)</i></span></div>
-        <div style="margin-top:8px">Output folder: <b id="outDir">&mdash;</b></div>
+        <div style="margin-top:8px">Output folder: <b id="outDir">-</b></div>
       </div>
       <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
-        <div style="font-size:.95rem;color:var(--muted);margin-bottom:8px">Optional &mdash; clean the picked SMILES into a de-duplicated library first (de-salt, de-solvent, normalize; <b>charge/polarity preserved</b>):</div>
+        <div style="font-size:.95rem;color:var(--muted);margin-bottom:8px">Optional - clean the picked SMILES into a de-duplicated library first (de-salt, de-solvent, normalize; <b>charge/polarity preserved</b>):</div>
         <div class="g3">
           <div><label>Clean output</label><input id="preOut" value="clean_library.smi"></div>
           <div><label>Parallel tasks</label><input id="preTasks" type="number" min="1" value="8"></div>
           <div><label>CPUs / task</label><input id="preCpus" type="number" min="1" value="8"></div>
         </div>
-        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted)"><input type="checkbox" id="preNeut" style="width:auto"> also neutralize charges (default off &mdash; keeps polarity)</label>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted)"><input type="checkbox" id="preNeut" style="width:auto"> also neutralize charges (default off - keeps polarity)</label>
         <button class="smallbtn" style="margin-top:10px;width:100%" id="preGo">Preprocess (clean library) &rarr; cluster</button>
         <div class="prog" id="prog2">
           <div class="bar"><i id="fill2"></i></div>
@@ -534,9 +534,9 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
     </div>
   </div>
   <div class="card">
-    <h2>2 &mdash; targets &amp; run</h2>
+    <h2>2 - targets &amp; run</h2>
     <div class="body">
-      <label>Protein target(s) &mdash; paste one sequence, or a multi-record FASTA (or pick a file on the left)</label>
+      <label>Protein target(s) - paste one sequence, or a multi-record FASTA (or pick a file on the left)</label>
       <textarea id="prot" placeholder=">CDK2&#10;MENFQK...&#10;>ABL1&#10;MGPSEND..."></textarea>
       <div class="g3">
         <div><label>GPUs (parallel)</label><input id="gpus" type="number" min="1" max="256" value="8"></div>
@@ -559,7 +559,7 @@ color:var(--txt);font-weight:700;cursor:pointer;font-size:1rem}
 </div>
 
 <details class="ai">
-  <summary>&#129302; AI assistant &mdash; setup &amp; ask (optional)</summary>
+  <summary>&#129302; AI assistant - setup &amp; ask (optional)</summary>
   <div class="aibox">
     <div class="g3">
       <div><label>Base URL (OpenAI-compatible)</label><input id="aiUrl" placeholder="http://host:8000/v1"></div>
@@ -612,7 +612,7 @@ function drow(name,path,ic,isdir,isS,isP,size){
 }
 function drawPicks(){
   $('#smiPicks').innerHTML = smi.length? smi.map((p,i)=>'<span class="f">&#129516; <b>'+esc(p.split('/').pop())+'</b> <span class="x" onclick="rmS('+i+')">&times;</span></span>').join('')
-    : '<i style="color:var(--muted)">none &mdash; click <b>+SMILES</b> on a file</i>';
+    : '<i style="color:var(--muted)">none - click <b>+SMILES</b> on a file</i>';
   $('#protPick').innerHTML = protFile? '<span class="f">&#129530; <b>'+esc(protFile.split('/').pop())+'</b> <span class="x" onclick="rmP()">&times;</span></span>'
     : '<i style="color:var(--muted)">none (or paste on the right)</i>';
 }
@@ -671,7 +671,7 @@ async function poll2(){
   $('#pmsg2').innerHTML='state: '+(d.state||'...')+'  ('+done+'/'+tot+' chunks)';
   if(d.merged){clearInterval(timer2);
     $('#pmsg2').innerHTML='<span class="ok">clean library ready &middot; '+(d.rows!=null?d.rows+' unique molecules':'')+'</span>';
-    $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> &mdash; now pick it as a SMILES file to screen';
+    $('#pnote2').innerHTML='result: <a class="dl" href="/api/download?path='+encodeURIComponent(run2.out)+'">'+esc(run2.out.split('/').pop())+'</a> - now pick it as a SMILES file to screen';
     $('#preGo').disabled=false;}
 }
 async function aiDetect(){
